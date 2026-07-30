@@ -594,6 +594,53 @@ function fileToScaledDataUrl(file, maxDim){
   });
 }
 
+/* Preserves transparency — used for signature uploads (PNG in, PNG out). Unlike
+   fileToScaledDataUrl, never flattens onto an opaque background. */
+function fileToScaledPngDataUrl(file, maxDim){
+  maxDim = maxDim || 1000;
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          const scale = maxDim / Math.max(w,h);
+          w = Math.round(w*scale); h = Math.round(h*scale);
+        }
+        const cnv = document.createElement('canvas');
+        cnv.width = w; cnv.height = h;
+        // no fillRect — canvas starts fully transparent, so alpha is preserved
+        cnv.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve({dataUrl: cnv.toDataURL('image/png'), width:w, height:h});
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* Measures a dataURL's true pixel size (needed to fit-without-distortion in the PDF) */
+function getImageDims(dataUrl){
+  return new Promise((resolve)=>{
+    if(!dataUrl){ resolve({w:1,h:1}); return; }
+    const img = new Image();
+    img.onload = ()=> resolve({w:img.naturalWidth||img.width, h:img.naturalHeight||img.height});
+    img.onerror = ()=> resolve({w:1,h:1});
+    img.src = dataUrl;
+  });
+}
+
+/* Contain-fit: scales imgW×imgH to fit fully inside boxW×boxH with no distortion,
+   cropping or stretching, and returns the centred offset within the box. */
+function fitImageInBox(imgW, imgH, boxW, boxH){
+  const scale = Math.min(boxW/imgW, boxH/imgH);
+  const w = imgW*scale, h = imgH*scale;
+  return {w, h, offsetX:(boxW-w)/2, offsetY:(boxH-h)/2};
+}
+
 /* =====================================================================
    TOAST (undo)
 ===================================================================== */
@@ -709,7 +756,7 @@ function buildSignaturePad(container, opts){
   wrap.querySelector('.sig-file').addEventListener('change', async (e)=>{
     const file = e.target.files[0]; if(!file) return;
     try{
-      const {dataUrl} = await fileToScaledDataUrl(file, 800);
+      const {dataUrl} = await fileToScaledPngDataUrl(file, 1000);
       current = dataUrl;
       updatePreview();
       if(opts.onChange) opts.onChange(current);
@@ -1857,11 +1904,18 @@ function loadAssetDataUrl(url){
   }));
   return ASSET_CACHE[url];
 }
+async function loadAssetBase64(url){
+  const dataUrl = await loadAssetDataUrl(url);
+  return dataUrl.split(',')[1];
+}
 
 const BRAND_RED = [216,31,51];
+const BRAND_CREAM = [255,242,223];   // #FFF2DF — exact table-shading colour from the source template
+const BRAND_RULE = [176,176,176];    // #B0B0B0 — exact row-divider colour from the source template
 const BRAND = {
   addressLines: ['Level 10, 400 George St', 'Sydney NSW 2000', '02 9241 4188', 'sydney@northrop.com.au', 'ABN 81 094 433 100'],
   tagline: 'REAL PEOPLE · REAL PARTNERSHIPS · REAL IMPACT',
+  disclaimer: "Site safety remains the responsibility of the builder. Any inspection carried out by Northrop Consulting Engineers Pty Ltd does not relieve the Contractor of their responsibility to construct the structure in accordance with the drawings and specifications. Statements set out here do not relieve the Contractor of his obligations to obtain approvals from authorities having jurisdiction over the works. This does not constitute authorisation for a contract variation unless stated in the instruction. No claim will be accepted unless approval of variation is obtained before any work proceeds.",
 };
 
 async function exportPdfReport(data){
@@ -1876,38 +1930,47 @@ async function exportPdfReport(data){
     markUrl = await loadAssetDataUrl('assets/brand-mark.png');
   }catch(e){ /* fall back to text-only header if assets fail to load */ }
 
+  let FONT = 'helvetica';
+  try{
+    const [regB64, semiB64, italB64] = await Promise.all([
+      loadAssetBase64('vendor/Figtree-Regular.ttf'),
+      loadAssetBase64('vendor/Figtree-SemiBold.ttf'),
+      loadAssetBase64('vendor/Figtree-Italic.ttf'),
+    ]);
+    doc.addFileToVFS('Figtree-Regular.ttf', regB64);
+    doc.addFont('Figtree-Regular.ttf', 'Figtree', 'normal');
+    doc.addFileToVFS('Figtree-SemiBold.ttf', semiB64);
+    doc.addFont('Figtree-SemiBold.ttf', 'Figtree', 'bold');
+    doc.addFileToVFS('Figtree-Italic.ttf', italB64);
+    doc.addFont('Figtree-Italic.ttf', 'Figtree', 'italic');
+    FONT = 'Figtree';
+  }catch(e){ FONT = 'helvetica'; }
+
   const sidebarW = 54;
   const contentX = sidebarW + 14;
   const contentW = pageW - contentX - margin;
 
   function drawLetterheadPage(){
-    // header zone
     if(logoUrl){
       const logoW = 46, logoH = logoW * (327/2374);
       doc.addImage(logoUrl, 'PNG', margin, 14, logoW, logoH);
     } else {
-      doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
+      doc.setFont(FONT,'bold'); doc.setFontSize(18); doc.setTextColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
       doc.text('NORTHROP', margin, 22);
     }
-    // sidebar
     doc.setFillColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
     doc.rect(0, 34, sidebarW, pageH-34-14, 'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(255,255,255);
+    doc.setFont(FONT,'bold'); doc.setFontSize(11); doc.setTextColor(255,255,255);
     const titleLines = doc.splitTextToSize('SITE INSPECTION REPORT', sidebarW-16);
     doc.text(titleLines, 8, 48);
-    if(data.header.reportNo){
-      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
-      doc.text(`Report No: ${data.header.reportNo}`, 8, 48 + titleLines.length*5.5 + 6);
-    }
-    // sidebar footer: contact block + mark
+
     let cy = pageH - 14 - (BRAND.addressLines.length*4.4) - 14;
     if(markUrl){ doc.addImage(markUrl, 'PNG', 8, cy-12, 8, 8); }
-    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
+    doc.setFont(FONT,'normal'); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
     BRAND.addressLines.forEach(line=>{ doc.text(line, 8, cy); cy += 4.4; });
 
-    // footer tagline + page number (full width)
     doc.setDrawColor(220); doc.line(margin, pageH-12, pageW-margin, pageH-12);
-    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(140);
+    doc.setFont(FONT,'normal'); doc.setFontSize(7.5); doc.setTextColor(140);
     doc.text(BRAND.tagline, sidebarW+margin, pageH-7);
     doc.text(String(doc.internal.getNumberOfPages()), pageW-margin, pageH-7, {align:'right'});
   }
@@ -1917,12 +1980,12 @@ async function exportPdfReport(data){
       const logoW = 32, logoH = logoW * (327/2374);
       doc.addImage(logoUrl, 'PNG', margin, 10, logoW, logoH);
     } else {
-      doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
+      doc.setFont(FONT,'bold'); doc.setFontSize(13); doc.setTextColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
       doc.text('NORTHROP', margin, 16);
     }
     doc.setDrawColor(220); doc.line(margin, 20, pageW-margin, 20);
     doc.setDrawColor(220); doc.line(margin, pageH-12, pageW-margin, pageH-12);
-    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(140);
+    doc.setFont(FONT,'normal'); doc.setFontSize(7.5); doc.setTextColor(140);
     doc.text(BRAND.tagline, margin, pageH-7);
     doc.text(String(doc.internal.getNumberOfPages()), pageW-margin, pageH-7, {align:'right'});
   }
@@ -1933,68 +1996,123 @@ async function exportPdfReport(data){
     if(y+h > pageH-18){ doc.addPage(); drawContinuationHeader(); x = margin; y = 26; }
   }
 
-  // recipient block
-  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(30);
+  /* ---- recipient block ---- */
+  doc.setFont(FONT,'normal'); doc.setFontSize(10); doc.setTextColor(30);
   const recipLines = [data.header.addresseeName, data.header.companyName, data.header.companyAddress].filter(Boolean);
   recipLines.forEach(l=>{ doc.text(l, x, y); y += 5; });
   const rightColX = pageW - margin - 55;
   let ry = 20;
-  if(data.header.date){ doc.text(data.header.date, rightColX, ry); ry += 5; }
+  if(data.header.date){ doc.setFont(FONT,'normal'); doc.text(data.header.date, rightColX, ry); ry += 5; }
   if(data.header.jobNumber){ doc.text(`Job No: ${data.header.jobNumber}`, rightColX, ry); ry += 5; }
+  if(data.header.projectName){
+    doc.setFont(FONT,'bold');
+    const projLines = doc.splitTextToSize(data.header.projectName, pageW-margin-rightColX);
+    doc.text(projLines, rightColX, ry); ry += projLines.length*5;
+  }
   y = Math.max(y, ry) + 8;
 
-  // distribution table
+  /* ============================================================
+     UNIFIED TABLE — distribution + report info + signature,
+     styled to match the source template exactly:
+     cream (#FFF2DF) label/header shading, thin grey (#B0B0B0)
+     horizontal rules between rows, no vertical grid lines.
+  ============================================================ */
+  const labelColW = 44;
+  const valueX = x + labelColW + 4;
+  const valueW = contentW - labelColW - 4;
+
+  function rule(yy){ doc.setDrawColor(BRAND_RULE[0],BRAND_RULE[1],BRAND_RULE[2]); doc.setLineWidth(0.2); doc.line(x, yy, x+contentW, yy); }
+  function creamBand(yy, h, w){ doc.setFillColor(BRAND_CREAM[0],BRAND_CREAM[1],BRAND_CREAM[2]); doc.rect(x, yy, w===undefined?contentW:w, h, 'F'); }
+
+  // -- distribution table --
   const distRows = (data.distribution||[]).filter(r=> r.company || r.attn);
   if(distRows.length){
-    ensureCover(10 + distRows.length*7);
-    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(20);
-    const colTo = x, colCopy = x+14, colCompany = x+30, colAttn = x+30+contentW*0.4;
-    doc.text('TO', colTo, y); doc.text('COPY', colCopy, y); doc.text('COMPANY', colCompany, y); doc.text('ATTN', colAttn, y);
-    y += 3;
-    doc.setDrawColor(210); doc.line(x, y, x+contentW, y); y += 5;
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    ensureCover(10 + distRows.length*7.5);
+    const colTo = x, colCopy = x+16, colCompany = x+32, colAttn = x+32+(contentW-32)*0.45;
+    const headH = 8;
+    creamBand(y, headH);
+    doc.setFont(FONT,'bold'); doc.setFontSize(8.5); doc.setTextColor(40);
+    doc.text('TO', colTo+2, y+5.3); doc.text('COPY', colCopy+2, y+5.3);
+    doc.text('COMPANY', colCompany+2, y+5.3); doc.text('ATTN:', colAttn+2, y+5.3);
+    y += headH;
+    rule(y);
+
+    doc.setFont(FONT,'normal'); doc.setFontSize(9);
     distRows.forEach(r=>{
-      ensureCover(7);
-      doc.rect(colTo, y-3.5, 3.5, 3.5, r.to ? 'F' : 'S');
-      doc.rect(colCopy, y-3.5, 3.5, 3.5, r.copy ? 'F' : 'S');
-      doc.text(r.company||'', colCompany, y);
-      doc.text(r.attn||'', colAttn, y);
-      y += 6.5;
+      ensureCover(7.5);
+      const rowH = 7.5;
+      const boxSize = 3.6, boxY = y + rowH/2 - boxSize/2;
+      [{checked:r.to, cx:colTo+2}, {checked:r.copy, cx:colCopy+2}].forEach(({checked,cx})=>{
+        doc.setDrawColor(90); doc.setLineWidth(0.25);
+        doc.rect(cx, boxY, boxSize, boxSize, 'S');
+        if(checked){
+          doc.setDrawColor(30); doc.setLineWidth(0.4);
+          doc.line(cx, boxY, cx+boxSize, boxY+boxSize);
+          doc.line(cx, boxY+boxSize, cx+boxSize, boxY);
+        }
+      });
+      doc.setTextColor(30);
+      doc.text(r.company||'', colCompany+2, y+rowH/2+1.5);
+      doc.text(r.attn||'', colAttn+2, y+rowH/2+1.5);
+      y += rowH;
+      rule(y);
     });
-    y += 6;
+    y += 2;
   }
 
-  // report information block
+  // -- report info + signature rows --
   const infoRows = [
-    ['SITE VISIT REQUESTED BY', data.info.siteVisitRequestedBy],
-    ['REASON FOR VISIT', data.info.reasonForVisit],
-    ['INSPECTOR', data.info.inspector],
-    ['SENT VIA', data.info.sentVia],
+    ['SITE VISIT REQUESTED BY', data.info.siteVisitRequestedBy, false],
+    ['REPORT No. / REV', data.header.reportNo, false],
+    ['REASON FOR VISIT:', data.info.reasonForVisit, false],
+    ['INSPECTOR:', data.info.inspector, false],
+    ['SENT VIA', data.info.sentVia, false],
   ].filter(r=>r[1]);
-  if(infoRows.length){
-    ensureCover(infoRows.length*7+4);
-    infoRows.forEach(r=>{
-      ensureCover(7);
-      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(120);
-      doc.text(r[0], x, y);
-      doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(30);
-      const lines = doc.splitTextToSize(r[1], contentW);
-      doc.text(lines, x, y+4.2);
-      y += 4.2 + lines.length*4.6;
-      doc.setDrawColor(230); doc.line(x, y, x+contentW, y); y += 4;
-    });
-    y += 4;
+
+  let sigDims = null, sigDataUrl = data.signoff.signatureDataUrl || '';
+  if(sigDataUrl){ sigDims = await getImageDims(sigDataUrl); }
+
+  function drawInfoRow(label, valueText){
+    doc.setFont(FONT,'normal'); doc.setFontSize(9.5);
+    const lines = doc.splitTextToSize(valueText, valueW);
+    const rowH = Math.max(10, lines.length*4.6 + 5.5);
+    ensureCover(rowH);
+    creamBand(y, rowH, labelColW);
+    doc.setFont(FONT,'bold'); doc.setFontSize(7.8); doc.setTextColor(50);
+    const labelLines = doc.splitTextToSize(label, labelColW-4);
+    doc.text(labelLines, x+2, y+5.2);
+    doc.setFont(FONT,'normal'); doc.setFontSize(9.5); doc.setTextColor(25);
+    doc.text(lines, valueX, y+5.2);
+    y += rowH;
+    rule(y);
   }
 
-  // salutation + body
+  infoRows.forEach(r=> drawInfoRow(r[0], r[1]));
+
+  if(sigDataUrl){
+    const rowH = 18;
+    ensureCover(rowH);
+    creamBand(y, rowH, labelColW);
+    doc.setFont(FONT,'bold'); doc.setFontSize(7.8); doc.setTextColor(50);
+    doc.text('SIGNATURE', x+2, y+5.2);
+    try{
+      const box = fitImageInBox(sigDims.w, sigDims.h, valueW*0.55, rowH-4);
+      doc.addImage(sigDataUrl, 'PNG', valueX+box.offsetX, y+2+box.offsetY, box.w, box.h);
+    }catch(e){}
+    y += rowH;
+    rule(y);
+  }
+  y += 8;
+
+  /* ---- salutation + body ---- */
   ensureCover(10);
-  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(30);
+  doc.setFont(FONT,'normal'); doc.setFontSize(10); doc.setTextColor(30);
   doc.text(`Dear ${data.header.addresseeName || 'Sir/Madam'},`, x, y); y += 8;
 
-  const bodyText = htmlToPlainParagraphs(data.bodyHtml);
-  bodyText.forEach(para=>{
+  const bodyParas = htmlToPlainParagraphs(data.bodyHtml);
+  bodyParas.forEach(para=>{
+    doc.setFont(FONT,'normal'); doc.setFontSize(10); doc.setTextColor(30);
     if(para.type==='bullet' || para.type==='number'){
-      ensureCover(6);
       const prefix = para.type==='bullet' ? '•  ' : `${para.index}.  `;
       const lines = doc.splitTextToSize(para.text, contentW-8);
       lines.forEach((line,i)=>{
@@ -2014,30 +2132,33 @@ async function exportPdfReport(data){
   });
   y += 4;
 
-  // sign-off
-  ensureCover(30);
-  doc.text(data.signoff.phrase || 'Yours sincerely,', x, y); y += 16;
-  if(data.signoff.signatureDataUrl){
-    try{
-      const sigW = 38, sigH = sigW*(220/600);
-      doc.addImage(data.signoff.signatureDataUrl, 'PNG', x, y-11, sigW, sigH);
-    }catch(e){}
-  }
-  y += 2;
-  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20);
+  /* ---- sign-off (text only — signature already shown in the table above) ---- */
+  ensureCover(20);
+  doc.setFont(FONT,'normal'); doc.setFontSize(10); doc.setTextColor(30);
+  doc.text(data.signoff.phrase || 'Yours sincerely,', x, y); y += 14;
+  doc.setFont(FONT,'bold'); doc.setFontSize(10); doc.setTextColor(20);
   doc.text(data.signoff.name || '', x, y); y += 5;
-  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(90);
+  doc.setFont(FONT,'normal'); doc.setFontSize(9.5); doc.setTextColor(60);
   const posLine = [data.signoff.position, data.signoff.company].filter(Boolean).join(' | ');
   if(posLine){ doc.text(posLine, x, y); y += 5; }
   y += 6;
 
+  /* ---- disclaimer ---- */
   ensureCover(20);
-  doc.setFont('helvetica','italic'); doc.setFontSize(7);  doc.setTextColor(120);
-  const disclaimer = "Site safety remains the responsibility of the builder. Any inspection carried out by Northrop Consulting Engineers Pty Ltd does not relieve the Contractor of their responsibility to construct the structure in accordance with the drawings and specifications. Statements set out here do not relieve the Contractor of his obligations to obtain approvals from authorities having jurisdiction over the works. This does not constitute authorisation for a contract variation unless stated in the instruction. No claim will be accepted unless approval of variation is obtained before any work proceeds.";
-  const discLines = doc.splitTextToSize(disclaimer, contentW);
-  doc.text(discLines, x, y); y += discLines.length*3.6;
+  doc.setFont(FONT,'italic'); doc.setFontSize(7.2); doc.setTextColor(90);
+  const boldLead = 'Site safety remains the responsibility of the builder.';
+  const rest = BRAND.disclaimer.slice(boldLead.length).trim();
+  const leadLines = doc.splitTextToSize(boldLead, contentW);
+  doc.setFont(FONT,'bold');
+  doc.text(leadLines, x, y);
+  const leadW = doc.getTextWidth(leadLines[leadLines.length-1]);
+  doc.setFont(FONT,'italic');
+  const restLines = doc.splitTextToSize(rest, contentW);
+  // simplest reliable layout: bold lead on its own visual run, rest wraps below on same paragraph
+  doc.text(restLines, x, y + leadLines.length*3.6);
+  y += (leadLines.length + restLines.length)*3.6;
 
-  /* ---- Observations pages ---- */
+  /* ============ Observations pages ============ */
   const obsRows = [];
   CHECKLIST_GROUPS.forEach(g=>{
     const rows = [];
@@ -2057,27 +2178,27 @@ async function exportPdfReport(data){
 
   if(obsRows.length){
     doc.addPage(); drawContinuationHeader(); x = margin; y = 28;
-    doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(20);
+    doc.setFont(FONT,'bold'); doc.setFontSize(14); doc.setTextColor(20);
     doc.text('Observations', x, y); y += 10;
 
     const statusColor = {pass:[31,143,94], fail:[201,51,56], hold:[166,121,10]};
     const statusLabel = {pass:'OBSERVED', fail:'ATTENTION REQUIRED', hold:'HOLD'};
     obsRows.forEach(group=>{
       if(y+12 > pageH-18){ doc.addPage(); drawContinuationHeader(); y = 28; }
-      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20);
+      doc.setFont(FONT,'bold'); doc.setFontSize(11); doc.setTextColor(20);
       doc.text(group.group, x, y); y += 6;
       group.rows.forEach(r=>{
         if(y+8 > pageH-18){ doc.addPage(); drawContinuationHeader(); y = 28; }
         const col = statusColor[r.status] || [150,150,150];
-        doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(col[0],col[1],col[2]);
+        doc.setFont(FONT,'bold'); doc.setFontSize(7.5); doc.setTextColor(col[0],col[1],col[2]);
         doc.text(`[${statusLabel[r.status] || 'OPEN'}]`, x, y);
-        doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(30);
+        doc.setFont(FONT,'normal'); doc.setFontSize(9.5); doc.setTextColor(30);
         const textLines = doc.splitTextToSize(r.text, pageW-margin*2-30);
         doc.text(textLines, x+30, y);
         y += textLines.length*4.6;
         if(r.notes){
           if(y+6 > pageH-18){ doc.addPage(); drawContinuationHeader(); y = 28; }
-          doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(110);
+          doc.setFont(FONT,'italic'); doc.setFontSize(8.5); doc.setTextColor(110);
           const noteLines = doc.splitTextToSize(`Note: ${r.notes}`, pageW-margin*2-30);
           doc.text(noteLines, x+30, y);
           y += noteLines.length*4.2;
@@ -2088,12 +2209,12 @@ async function exportPdfReport(data){
     });
   }
 
-  /* ---- Markup pages ---- */
+  /* ============ Markup pages ============ */
   const canvasEls = document.querySelectorAll('.markup-item .mu-canvas-wrap canvas');
   (data.markups||[]).forEach((entry, idx)=>{
     doc.addPage(); drawContinuationHeader();
     let my = 28;
-    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(20);
+    doc.setFont(FONT,'bold'); doc.setFontSize(12); doc.setTextColor(20);
     doc.text(entry.caption ? entry.caption : `Site markup ${idx+1}`, margin, my); my += 8;
 
     const canvasEl = canvasEls[idx];
@@ -2105,13 +2226,13 @@ async function exportPdfReport(data){
     my += h + 8;
 
     if(entry.pins && entry.pins.length){
-      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20);
+      doc.setFont(FONT,'bold'); doc.setFontSize(10); doc.setTextColor(20);
       doc.text('Markup notes', margin, my); my += 6;
       entry.pins.forEach((p,i)=>{
         if(my+6 > pageH-18){ doc.addPage(); drawContinuationHeader(); my = 28; }
-        doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
+        doc.setFont(FONT,'bold'); doc.setFontSize(9); doc.setTextColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
         doc.text(`${i+1}.`, margin, my);
-        doc.setFont('helvetica','normal'); doc.setTextColor(40);
+        doc.setFont(FONT,'normal'); doc.setTextColor(40);
         const lines = doc.splitTextToSize(p.note || '(no note)', pageW-margin*2-10);
         doc.text(lines, margin+8, my);
         my += lines.length*4.6 + 1;

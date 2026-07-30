@@ -6,7 +6,40 @@ inspection tools, referenced to **AS 3600:2018**. Designed for one-tap access fr
 > Folder/repo name can stay `sitecheck-rc` (or whatever you already created) — only the
 > in-app name and icon changed, so your existing GitHub Pages URL and NFC tag still work.
 
-## What's new in this version — Phase 1: Site Inspection Report
+## What's new in this version — Template fidelity pass
+
+The PDF export was rebuilt to match your actual Northrop template precisely, instead of an
+approximation:
+
+- **Real template colours**: exact cream table shading (`#FFF2DF`) and rule-line grey (`#B0B0B0`)
+  pulled directly from your `.docx`, not eyeballed.
+- **Real brand font**: your template's actual typeface (Figtree) is now embedded and used
+  throughout the PDF — previously it silently fell back to a generic system font.
+- **Unified table layout**: distribution table, report info, and signature are now one continuous
+  bordered table (cream label shading, thin grey rules between rows, no vertical grid lines) —
+  matching the template exactly instead of being three separate disconnected blocks.
+- **Signature moved into the table**: there's now a single SIGNATURE row in that table (matching
+  the template), instead of a second signature floating near "Yours sincerely,".
+- **Checkboxes**: now drawn as an outlined box with an X mark when checked, matching the
+  template's ☒/☐ style, instead of a plain filled/empty square.
+- **Report No. / Rev** moved out of the sidebar into its correct row in the info table.
+- **Signature bugs fixed**:
+  - Uploaded PNG signatures were silently being flattened to JPEG, which destroyed transparency
+    (any background behind the signature showed as a solid block). Uploads now stay PNG end to
+    end, so transparency is preserved.
+  - Both drawn and uploaded signatures are now measured and scaled to fit the signature box
+    without distortion, cropping or stretching, and land in the same position regardless of
+    which method was used.
+
+**Known remaining gaps** (flagged rather than silently glossed over):
+- The disclaimer paragraph's bold lead sentence now sits on its own line above the italic body,
+  rather than flowing inline as one paragraph like the template — true mixed bold/italic
+  word-wrapping in a single paragraph needs more involved manual text layout than a straight port
+  could justify in this pass. Say the word if you want that tightened up.
+- The sidebar's rounded-corner shape is still a plain rectangle rather than the template's
+  rounded-top pill shape.
+
+## What's new in the previous version — Phase 1: Site Inspection Report
 
 The **Checklist** tab is now **Report** — a full Northrop-style Site Inspection Report builder:
 
@@ -56,6 +89,7 @@ index.html                    the whole app (HTML/CSS/JS, no build step)
 manifest.json                  PWA manifest (name, icons, theme colour)
 sw.js                           service worker — caches the app shell for offline use
 vendor/jspdf.umd.min.js         PDF generation library, bundled locally (no CDN/internet needed)
+vendor/Figtree-*.ttf             your template's actual brand font, embedded in exported PDFs
 assets/logo.png                 Northrop logo, used in the PDF cover sheet
 assets/brand-mark.png            Northrop circular mark, used in the PDF sidebar
 icons/icon-192.png
