@@ -6,7 +6,17 @@ inspection tools, referenced to **AS 3600:2018**. Designed for one-tap access fr
 > Folder/repo name can stay `sitecheck-rc` (or whatever you already created) — only the
 > in-app name and icon changed, so your existing GitHub Pages URL and NFC tag still work.
 
-## What's new in this version — Template fidelity pass
+## What's new in this version — Header overlap bug fix
+
+Found and fixed the cause of the missing address / "100 Ebley Street": the recipient block's
+left column (addressee/company/address) had no width limit, so a long address was drawn straight
+across the page with no wrapping — it visually collided with the date/job number/project name in
+the right column, garbling both into unreadable overlapping text. That's why the project address
+appeared to vanish. The left column now wraps properly within its own space, confirmed with a
+real typed-input-through-to-PDF test (not just pre-set data), plus OCR on the rendered output to
+verify the exact text landing correctly with no overlap.
+
+## What's new in the previous version — Template fidelity pass
 
 The PDF export was rebuilt to match your actual Northrop template precisely, instead of an
 approximation:
