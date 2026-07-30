@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#F6F4EF">
+<meta name="description" content="Reinforcement and concrete inspection reference tool to AS 3600:2018">
+<title>Concrete Companion v1.0</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+:root{
+  /* light theme (default) */
+  --bg:#F6F4EF;
+  --surface:#FFFFFF;
+  --surface-2:#F0EDE6;
+  --surface-3:#E7E2D8;
+  --border:#DBD5C8;
+  --border-soft:#E8E3D9;
+  --text:#181A1C;
+  --text-dim:#565C62;
+  --text-faint:#868D94;
+  --amber-fill:#F5A623;
+  --amber-ink:#9A5A0E;
+  --amber-tint:rgba(154,90,14,0.12);
+  --amber-dim:#D9B26B;
+  --pass:#1F8F5E;
+  --fail:#C93338;
+  --hold:#A6790A;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+[data-theme="dark"]{
+  --bg:#121416;
+  --surface:#1A1D20;
+  --surface-2:#20242A;
+  --surface-3:#272C33;
+  --border:#333A42;
+  --border-soft:#262B31;
+  --text:#F2F0EB;
+  --text-dim:#A7AFB8;
+  --text-faint:#6E7680;
+  --amber-fill:#F5A623;
+  --amber-ink:#F5A623;
+  --amber-tint:rgba(245,166,35,0.1);
+  --amber-dim:#8A5E1E;
+  --pass:#3FB27F;
+  --fail:#E5484D;
+  --hold:#E8B93B;
+}
+body{transition:background-color .15s, color .15s;}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+  -webkit-font-smoothing:antialiased; overscroll-behavior-y:none;
+}
+#app{display:flex; flex-direction:column; height:100vh; height:100dvh;}
+
+/* ---------- Header ---------- */
+header.top{
+  padding: calc(14px + var(--safe-top)) 16px 12px;
+  background:var(--bg);
+  border-bottom:1px solid var(--border-soft);
+  flex-shrink:0;
+}
+.brand{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.brand .id{display:flex; align-items:center; gap:10px;}
+.theme-toggle{
+  width:38px; height:38px; border-radius:50%; border:1px solid var(--border); background:var(--surface);
+  color:var(--text-dim); display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.theme-toggle svg{width:18px; height:18px;}
+.brand .mark{width:30px; height:30px; border-radius:50%; border:2.5px solid var(--amber-fill); position:relative; flex-shrink:0;}
+.brand .mark::after{content:""; position:absolute; inset:9px; background:var(--amber-fill); border-radius:50%;}
+.brand h1{font-size:17px; margin:0; font-weight:700; letter-spacing:0.2px;}
+.brand .sub{font-size:11px; color:var(--text-faint); margin-top:1px; font-family:var(--mono); letter-spacing:0.3px;}
+.module-switch{display:flex; gap:6px; margin-top:12px;}
+.module-switch button{
+  flex:1; padding:11px 6px; border-radius:10px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text-dim); font-size:13px; font-weight:600;
+  font-family:var(--sans); cursor:pointer;
+}
+.module-switch button.active{background:var(--amber-fill); border-color:var(--amber-fill); color:#1A1200;}
+
+/* ---------- Sub nav (chips) ---------- */
+.subnav{display:flex; gap:8px; overflow-x:auto; padding:12px 16px 0; flex-shrink:0; scrollbar-width:none;}
+.subnav::-webkit-scrollbar{display:none;}
+.subnav button{
+  white-space:nowrap; padding:9px 14px; border-radius:999px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text-dim); font-size:13px; font-weight:600; font-family:var(--sans);
+}
+.subnav button.active{background:var(--surface-3); border-color:var(--amber-ink); color:var(--amber-ink);}
+
+/* ---------- Main content ---------- */
+main{flex:1; overflow-y:auto; padding:16px 16px calc(24px + var(--safe-bottom)); -webkit-overflow-scrolling:touch;}
+.view{display:none;}
+.view.active{display:block; animation:fade .15s ease;}
+@keyframes fade{from{opacity:0} to{opacity:1}}
+
+.card{background:var(--surface); border:1px solid var(--border-soft); border-radius:14px; padding:16px; margin-bottom:14px;}
+.card h2{font-size:15px; margin:0 0 4px; font-weight:700;}
+.card .clause{font-family:var(--mono); font-size:11px; color:var(--amber-ink); background:var(--amber-tint); padding:2px 8px; border-radius:6px; display:inline-block; margin-bottom:10px;}
+.card p.desc{font-size:13px; color:var(--text-dim); line-height:1.5; margin:0 0 12px;}
+
+/* form controls */
+label{display:block; font-size:12px; color:var(--text-dim); margin:12px 0 6px; font-weight:600;}
+label:first-of-type{margin-top:0;}
+select, input[type=number], input[type=text]{
+  width:100%; padding:13px 12px; border-radius:10px; border:1px solid var(--border);
+  background:var(--surface-2); color:var(--text); font-size:16px; font-family:var(--mono);
+}
+select{font-family:var(--sans); appearance:none; background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A7AFB8' stroke-width='2'%3e%3cpath d='M6 9l6 6 6-6'/%3e%3c/svg%3e"); background-repeat:no-repeat; background-position:right 12px center; padding-right:36px;}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.seg{display:flex; gap:6px; margin-top:6px;}
+.seg button{flex:1; padding:12px 6px; border-radius:9px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); font-size:13px; font-weight:600;}
+.seg button.on{background:var(--amber-fill); border-color:var(--amber-fill); color:#1A1200;}
+
+.result{margin-top:16px; padding:14px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border);}
+.result .big{font-family:var(--mono); font-size:26px; font-weight:700; color:var(--amber-ink); line-height:1.15;}
+.result .label{font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;}
+.result .verdict{margin-top:10px; font-weight:700; font-size:14px; padding:8px 10px; border-radius:8px;}
+.verdict.ok{background:rgba(63,178,127,0.15); color:var(--pass);}
+.verdict.bad{background:rgba(229,72,77,0.15); color:var(--fail);}
+.subresult{display:flex; justify-content:space-between; font-size:13px; color:var(--text-dim); padding:6px 0; border-top:1px dashed var(--border-soft); font-family:var(--mono);}
+.subresult span:last-child{color:var(--text);}
+
+table{width:100%; border-collapse:collapse; font-size:13px;}
+th,td{padding:8px 6px; text-align:right; border-bottom:1px solid var(--border-soft); font-family:var(--mono);}
+th:first-child,td:first-child{text-align:left; font-family:var(--sans); font-weight:600;}
+th{color:var(--text-faint); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.3px;}
+.table-wrap{overflow-x:auto; margin:0 -4px;}
+tr.hi td{color:var(--amber-ink); font-weight:700;}
+
+.disclaimer{
+  display:flex; gap:10px; align-items:flex-start; padding:12px 14px; background:rgba(245,166,35,0.08);
+  border:1px solid var(--amber-dim); border-radius:12px; margin-bottom:16px; font-size:12px; color:var(--text-dim); line-height:1.5;
+}
+.disclaimer .ic{color:var(--amber-ink); font-weight:800; font-size:16px; flex-shrink:0;}
+
+.accordion{border:1px solid var(--border-soft); border-radius:12px; margin-bottom:10px; overflow:hidden; background:var(--surface);}
+.accordion .head{padding:14px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;}
+.accordion .head h3{margin:0; font-size:14px; font-weight:700;}
+.accordion .head .chev{color:var(--text-faint); transition:transform .15s;}
+.accordion.open .chev{transform:rotate(180deg);}
+.accordion .body{display:none; padding:0 16px 16px; font-size:13px; color:var(--text-dim); line-height:1.6;}
+.accordion.open .body{display:block;}
+.accordion .body b{color:var(--text); font-weight:700;}
+.accordion .body .tag{display:inline-block; font-family:var(--mono); font-size:10px; color:var(--amber-ink); background:var(--amber-tint); padding:2px 6px; border-radius:5px; margin-bottom:6px;}
+
+/* checklist */
+.chk-group{margin-bottom:18px;}
+.chk-group > h2{font-size:13px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-faint); margin:0 0 10px; padding-left:2px;}
+.chk-item{background:var(--surface); border:1px solid var(--border-soft); border-radius:12px; padding:14px; margin-bottom:10px;}
+.chk-item .q{font-size:14px; font-weight:600; margin-bottom:10px;}
+.status-btns{display:flex; gap:6px;}
+.status-btns button{flex:1; padding:11px 4px; border-radius:9px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); font-size:12px; font-weight:700; letter-spacing:0.3px;}
+.status-btns button.pass.on{background:rgba(63,178,127,0.18); border-color:var(--pass); color:var(--pass);}
+.status-btns button.fail.on{background:rgba(229,72,77,0.18); border-color:var(--fail); color:var(--fail);}
+.status-btns button.hold.on{background:rgba(232,185,59,0.18); border-color:var(--hold); color:var(--hold);}
+.chk-item textarea{
+  width:100%; margin-top:10px; padding:10px; border-radius:8px; border:1px solid var(--border);
+  background:var(--surface-2); color:var(--text); font-size:13px; font-family:var(--sans); resize:vertical; min-height:38px;
+}
+.chk-summary{display:flex; gap:8px; margin-bottom:14px;}
+.chk-summary .pill{flex:1; text-align:center; padding:10px 4px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border-soft);}
+.chk-summary .pill .n{font-family:var(--mono); font-size:20px; font-weight:700;}
+.chk-summary .pill .l{font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.4px;}
+.chk-summary .pill.pass .n{color:var(--pass);} .chk-summary .pill.fail .n{color:var(--fail);} .chk-summary .pill.hold .n{color:var(--hold);}
+.btnrow{display:flex; gap:8px; margin-top:4px;}
+.btn{flex:1; padding:13px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-weight:700; font-size:13px;}
+.btn.primary{background:var(--amber-fill); border-color:var(--amber-fill); color:#1A1200;}
+
+/* markup */
+.markup-item{background:var(--surface); border:1px solid var(--border-soft); border-radius:12px; padding:14px; margin-bottom:12px;}
+.markup-item .mu-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px;}
+.markup-item .mu-caption{flex:1; padding:9px 11px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px; font-family:var(--sans); font-weight:600;}
+.mu-del{flex-shrink:0; width:34px; height:34px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--fail); font-size:14px; font-weight:700;}
+.mu-toolbar{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; align-items:center;}
+.mu-toolbar button{padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); font-size:12px; font-weight:700;}
+.mu-toolbar button.on{border-color:var(--amber-fill); color:var(--amber-ink); background:var(--amber-tint);}
+.mu-swatch{width:26px; height:26px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; padding:0;}
+.mu-swatch.on{border-color:var(--text);}
+.mu-canvas-wrap{position:relative; width:100%; border-radius:10px; overflow:hidden; border:1px solid var(--border-soft); touch-action:none; background:var(--surface-2);}
+.mu-canvas-wrap canvas{width:100%; height:auto; display:block; touch-action:none;}
+.pin-list{margin-top:10px;}
+.pin-row{display:flex; gap:8px; align-items:center; margin-bottom:6px;}
+.pin-row .pin-badge{width:24px; height:24px; border-radius:50%; background:var(--fail); color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:var(--mono);}
+.pin-row input{flex:1; padding:8px 10px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:12px;}
+.pin-row .pin-del{flex-shrink:0; width:28px; height:28px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--fail); font-size:12px; font-weight:700;}
+.mu-add-btn{width:100%; padding:14px; border-radius:12px; border:1.5px dashed var(--border); background:var(--surface-2); color:var(--text-dim); font-weight:700; font-size:13px; margin-bottom:14px;}
+
+/* settings */
+.settings-header{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+.settings-header button{width:36px; height:36px; border-radius:9px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); flex-shrink:0;}
+.settings-header h2{margin:0; font-size:17px;}
+.sig-tabs{display:flex; gap:6px; margin:10px 0;}
+.sig-tabs button{flex:1; padding:10px; border-radius:9px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); font-weight:700; font-size:13px;}
+.sig-tabs button.on{border-color:var(--amber-fill); background:var(--amber-tint); color:var(--amber-ink);}
+.sig-pad-wrap{border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff; touch-action:none;}
+.sig-pad-wrap canvas{width:100%; height:160px; display:block; touch-action:none;}
+.sig-preview{border:1px solid var(--border-soft); border-radius:10px; background:#fff; padding:10px; display:flex; align-items:center; justify-content:center; min-height:100px;}
+.sig-preview img{max-width:100%; max-height:110px;}
+
+/* report header / distribution / info */
+.field-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px 12px;}
+.field-grid .full{grid-column:1/-1;}
+.dist-table{width:100%; border-collapse:collapse; margin-top:10px;}
+.dist-table th{font-size:10px; text-transform:uppercase; color:var(--text-faint); text-align:left; padding:4px 4px; font-weight:700;}
+.dist-table td{padding:5px 4px; border-top:1px solid var(--border-soft); vertical-align:middle;}
+.dist-table td input[type=checkbox]{width:20px; height:20px;}
+.dist-table td input[type=text]{width:100%; padding:8px; font-size:12px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text);}
+.dist-table .dr-del{width:28px; height:28px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--fail); font-size:12px; font-weight:700;}
+.dist-addrow{margin-top:10px; width:100%; padding:11px; border-radius:9px; border:1.5px dashed var(--border); background:var(--surface-2); color:var(--text-dim); font-weight:700; font-size:12.5px;}
+
+/* rich text editor */
+.rte-toolbar{display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px; padding:6px; background:var(--surface-2); border-radius:9px; border:1px solid var(--border-soft);}
+.rte-toolbar button{width:34px; height:34px; border-radius:7px; border:1px solid transparent; background:transparent; color:var(--text-dim); font-weight:700; font-size:13px;}
+.rte-toolbar button:active, .rte-toolbar button.on{background:var(--surface-3); border-color:var(--border); color:var(--text);}
+.rte-editor{min-height:160px; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px; line-height:1.6; font-family:var(--sans);}
+.rte-editor:focus{outline:none; border-color:var(--amber-fill);}
+.rte-editor ul, .rte-editor ol{padding-left:22px; margin:6px 0;}
+.salutation{font-size:14px; font-weight:600; margin-bottom:8px; color:var(--text-dim);}
+
+/* sign-off */
+.signoff-block{margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-soft);}
+.signoff-preview{margin-top:8px;}
+.signoff-preview .n{font-weight:700; font-size:14px;}
+.signoff-preview .p{font-size:12px; color:var(--text-dim);}
+.signoff-sig-preview{max-width:160px; max-height:60px; margin-top:6px; background:#fff; border-radius:6px; padding:4px;}
+
+/* hide-from-report toggle */
+.hide-toggle{flex-shrink:0; width:32px; height:32px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-faint); font-size:13px;}
+.hide-toggle.on{color:var(--amber-ink); border-color:var(--amber-fill); background:var(--amber-tint);}
+.chk-item.is-hidden-from-report{opacity:0.55;}
+
+/* toast */
+#toast{
+  position:fixed; left:50%; transform:translateX(-50%) translateY(120%); bottom:calc(78px + var(--safe-bottom));
+  background:var(--surface-3); color:var(--text); border:1px solid var(--border); border-radius:11px;
+  padding:11px 14px; font-size:13px; display:flex; align-items:center; gap:12px; box-shadow:0 6px 20px rgba(0,0,0,0.2);
+  z-index:50; transition:transform .2s ease; max-width:90vw;
+}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast button{color:var(--amber-ink); font-weight:700; background:none; border:none; font-size:13px; flex-shrink:0;}
+.btn.danger{color:var(--fail); border-color:var(--fail);}
+
+/* bottom tab bar */
+nav.tabs{
+  display:flex; flex-shrink:0; background:var(--surface); border-top:1px solid var(--border-soft);
+  padding-bottom:var(--safe-bottom);
+}
+nav.tabs button{
+  flex:1; background:none; border:none; padding:10px 4px calc(8px); color:var(--text-faint);
+  display:flex; flex-direction:column; align-items:center; gap:4px; font-size:11px; font-weight:600; font-family:var(--sans);
+}
+nav.tabs button.active{color:var(--amber-ink);}
+nav.tabs svg{width:22px; height:22px;}
+
+.hint{font-size:11px; color:var(--text-faint); margin-top:8px; line-height:1.5;}
+.searchbox{margin-bottom:12px;}
+.pillrow{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 2px;}
+.pillrow .pl{font-family:var(--mono); font-size:11px; padding:5px 9px; border-radius:7px; background:var(--surface-2); border:1px solid var(--border-soft); color:var(--text-dim);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <div class="brand">
+      <div class="id">
+        <div class="mark"></div>
+        <div>
+          <h1>Concrete Companion</h1>
+          <div class="sub">V1.0 · AS 3600:2018 FIELD REFERENCE</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="theme-toggle" id="settingsToggle" aria-label="Signature &amp; details settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark theme"></button>
+      </div>
+    </div>
+    <div class="module-switch" id="moduleSwitch">
+      <button data-module="reo" class="active">Reinforcement</button>
+      <button data-module="conc">Concrete</button>
+      <button data-module="chk">Report</button>
+    </div>
+  </header>
+
+  <div class="subnav" id="subnavReo">
+    <button data-view="reoTables" class="active">Bar &amp; Mesh Tables</button>
+    <button data-view="astCalc">Ast Check</button>
+    <button data-view="spacingCalc">Spacing</button>
+    <button data-view="lapCalc">Lap Length</button>
+    <button data-view="devCalc">Development Length</button>
+  </div>
+
+  <div class="subnav" id="subnavConc" style="display:none;">
+    <button data-view="coverGuide" class="active">Cover Guide</button>
+    <button data-view="defectLib">Defect Library</button>
+  </div>
+
+  <main id="main"></main>
+
+  <div id="toast"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-module="reo" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/><path d="M12 4v2.4M12 17.6V20M20 12h-2.4M6.4 12H4"/></svg>
+      Reinforcement
+    </button>
+    <button data-module="conc">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l4-11 4 6 3-8 4 13"/><path d="M3 21h18"/></svg>
+      Concrete
+    </button>
+    <button data-module="chk">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12l2 2 4-4M8 17h5"/></svg>
+      Report
+    </button>
+  </nav>
+
+</div>
+
+<script src="vendor/jspdf.umd.min.js"></script>
+<script>
+/* =====================================================================
+   DATA
+===================================================================== */
+const BARS = [
+  {size:10, area:80},
+  {size:12, area:110},
+  {size:16, area:200},
+  {size:20, area:310},
+  {size:24, area:450},
+  {size:28, area:610},
+  {size:32, area:800},
+  {size:36, area:1020},
+  {size:40, area:1250},
+];
+const SQUARE_MESH = [
+  {name:'SL52', dia:4.77, cts:200, ast:89},
+  {name:'SL62', dia:6.00, cts:200, ast:141},
+  {name:'SL72', dia:6.75, cts:200, ast:179},
+  {name:'SL82', dia:7.60, cts:200, ast:227},
+  {name:'SL92', dia:8.60, cts:200, ast:290},
+  {name:'SL102', dia:9.50, cts:200, ast:354},
+  {name:'SL81', dia:7.60, cts:100, ast:454},
+];
+const RECT_MESH = [
+  {name:'RL718', longDia:6.75, longCts:100, longAst:358, crossDia:7.60, crossCts:200, crossAst:227},
+  {name:'RL818', longDia:7.60, longCts:100, longAst:454, crossDia:7.60, crossCts:200, crossAst:227},
+  {name:'RL918', longDia:8.60, longCts:100, longAst:581, crossDia:7.60, crossCts:200, crossAst:227},
+  {name:'RL1018', longDia:9.50, longCts:100, longAst:709, crossDia:7.60, crossCts:200, crossAst:227},
+  {name:'RL1118', longDia:10.70, longCts:100, longAst:899, crossDia:7.60, crossCts:200, crossAst:227},
+  {name:'RL1218', longDia:11.90, longCts:100, longAst:1112, crossDia:7.60, crossCts:200, crossAst:227},
+];
+const SPACINGS = [100,125,150,175,200,225,250,275,300,350,400];
+
+const COVER_TABLE = { // Table 4.10.3.2 - standard formwork & compaction, required cover (mm) vs f'c (MPa)
+  fc: [20,25,32,40,50],
+  rows: [
+    {ec:'A1', vals:[20,20,20,20,20]},
+    {ec:'A2', vals:[50,30,25,20,20], bracket:[true,false,false,false,false]},
+    {ec:'B1', vals:[null,60,40,30,25], bracket:[false,true,false,false,false]},
+    {ec:'B2', vals:[null,null,65,45,35], bracket:[false,false,true,false,false]},
+    {ec:'C1', vals:[null,null,null,70,50], bracket:[false,false,false,true,false]},
+    {ec:'C2', vals:[null,null,null,null,65], bracket:[false,false,false,false,false]},
+  ]
+};
+
+const COVER_ENV = [
+  {env:'Internal', ec:'A1', cover:'20 mm', fc:"f'c ≥ 20 MPa", note:'Enclosed, dry environment — no direct exposure to weather or ground moisture.'},
+  {env:'External — sheltered', ec:'A2', cover:'20–25 mm', fc:"f'c ≥ 25–32 MPa", note:'Above-ground, protected from direct wetting (e.g. under eaves, in a dry inland climate).'},
+  {env:'External — exposed to weather', ec:'B1', cover:'30–40 mm', fc:"f'c 32–40 MPa", note:'Above-ground surfaces directly exposed to weather, more than ~1 km from a coastline.'},
+  {env:'Marine (near-coastal, <1 km)', ec:'B2 (C1/C2 in splash/tidal zones)', cover:'45–65 mm', fc:"f'c 32–40 MPa", note:'Splash, tidal or spray-zone elements are typically C1/C2 and need higher cover/strength — confirm with the durability specification.'},
+  {env:'In-ground', ec:'B1, or per soil/geotech report', cover:'≥ 50 mm', fc:"f'c ≥ 32 MPa", note:'Cl 4.10.3.5 requires added cover for concrete cast directly against ground without a membrane. Confirm soil aggressivity per AS 2159 / project geotech report.'},
+  {env:'Swimming pool', ec:'B2, or C1 if chlorinated/saline', cover:'45–50 mm', fc:"f'c ≥ 40 MPa", note:'Pool environments are chemically aggressive. Confirm classification with the specifier — refer to AS 3735 for pool-specific detailing.'},
+];
+
+const DEFECTS = [
+  {
+    name:'Honeycombing', tag:'Voids / compaction defect',
+    desc:'Coarse aggregate exposed at the surface with mortar missing from between the stones, leaving visible interconnected voids.',
+    causes:'Poor compaction or vibration, congested reinforcement restricting concrete flow, incorrect mix design (too stiff / harsh mix), formwork leakage (grout loss), excessive drop height causing segregation.',
+    id:'Visual — rough, stony surface with visible voids; can often be seen right after strike; tap test may sound hollow over deeper honeycombing.',
+    remediation:'Assess depth and extent — minor surface honeycombing may be patched per specification; honeycombing affecting cover to reinforcement or structural depth requires engineer assessment before any repair, per project remedial-works procedure.'
+  },
+  {
+    name:'Cold joints', tag:'Placement / sequencing defect',
+    desc:'A visible line or plane of weakness where a concrete placement was interrupted long enough for the earlier layer to lose plasticity before the next layer was placed.',
+    causes:'Delays in supply or placement, inadequate planning of pour sequence, insufficient workforce or pump capacity for the placement rate, premature loss of workability of the mix.',
+    id:'Visible discontinuity line on the surface, difference in colour/texture either side of the joint, potential water ingress path.',
+    remediation:'Location and structural significance to be assessed by the engineer; may require coring/testing to confirm bond, and treatment (e.g. surface sealing, resin injection) per specifier\'s direction — not a standard finish defect.'
+  },
+  {
+    name:'Plastic shrinkage cracking', tag:'Early-age cracking',
+    desc:'Fine, random or map-pattern cracks appearing in the surface within the first few hours after placement, before the concrete has set.',
+    causes:'Rapid moisture loss from the surface exceeding bleed rate — high wind, low humidity, high concrete/ambient temperature, direct sun, no early curing.',
+    id:'Shallow, irregular cracks (often <300 mm long) visible within hours of placement, typically not full-depth.',
+    remediation:'Generally cosmetic if shallow — confirm depth; ensure curing regime is corrected for subsequent pours (windbreaks, fogging, curing compound applied promptly). Structural elements: engineer to confirm no impact on durability/cover.'
+  },
+  {
+    name:'Thermal cracking', tag:'Early-age cracking',
+    desc:'Cracking caused by differential temperature/volume change between the hot concrete core (from cement hydration heat) and the cooler, restrained surface or adjacent older concrete.',
+    causes:'High cement content / large pour volumes, insufficient control of peak core temperature or temperature differential, inadequate curing/insulation, restraint from adjoining elements or formwork.',
+    id:'Cracks typically appear at 1–7 days, can be through-section in mass pours; often aligned with restraint points or re-entrant corners.',
+    remediation:'Engineer to review crack width, depth and location against durability/serviceability requirements; may require monitoring, injection, or no action if within acceptable limits.'
+  },
+  {
+    name:'Structural cracking', tag:'Load-related cracking',
+    desc:'Cracking related to applied loads or restraint of imposed deformation, distinct from early-age shrinkage/thermal cracking — includes flexural, shear and settlement cracking.',
+    causes:'Design load exceedance, premature loading/stripping of formwork, differential settlement of formwork or foundations, unplanned construction loading.',
+    id:'Crack pattern and orientation consistent with stress trajectories (e.g. flexural cracks perpendicular to span, diagonal shear cracks); often wider or progressive compared with shrinkage cracking.',
+    remediation:'Always requires engineer assessment before any remedial action or further loading — do not classify or approve on-site without structural review.'
+  },
+  {
+    name:'Segregation', tag:'Placement / mix defect',
+    desc:'Separation of coarse aggregate from the mortar matrix, or of the constituent materials generally, resulting in non-uniform concrete.',
+    causes:'Excessive free-fall height, over-vibration, poorly proportioned or overly wet mix, transport/handling issues (e.g. long pump lines, chute segregation).',
+    id:'Visible aggregate concentration in one area (often at base of pour or lift face), sandy/weak surface layer, variation in colour or texture.',
+    remediation:'Extent and depth to be assessed by engineer; may require removal and replacement of affected concrete, or patch repair for minor surface segregation, per remedial specification.'
+  },
+  {
+    name:'Form-face blemishes', tag:'Surface finish defect',
+    desc:'Surface imperfections replicating formwork condition or release performance — blowholes, grain marks, discolouration, form-tie marks, or ridging at panel joins.',
+    causes:'Poor formwork condition or cleanliness, inconsistent or excessive release agent application, formwork panel misalignment, air entrapment against the form face during placement/compaction.',
+    id:'Visual inspection of stripped surface against the specified finish class (e.g. off-form Class 1/2/3 per project spec).',
+    remediation:'Compare against the contracted finish class; if non-compliant, remediation (grinding, patching, bagging) per the finishes specification — generally a cosmetic/durability issue, not structural, unless blemishes are deep enough to reduce cover.'
+  },
+  {
+    name:'Delamination', tag:'Surface / near-surface defect',
+    desc:'Separation of a thin surface layer of concrete (typically the top 5–20 mm of a slab) from the substrate, forming a void plane parallel to the surface.',
+    causes:'Premature or incorrect finishing sealing bleed water beneath the surface, excessive early trowelling, entrapped air rising during finishing, inconsistent mix bleed characteristics.',
+    id:'Hollow sound on chain-drag or tap test; often not visible until the surface is loaded or begins to spall.',
+    remediation:'Map extent with sounding survey; engineer/specifier to determine repair method (e.g. resin injection, removal and patching) based on extent and service requirements.'
+  },
+];
+
+const CHECKLIST_GROUPS = [
+  {
+    name:'Reinforcement layout',
+    items:[
+      'Bar sizes match approved drawings',
+      'Bar spacing matches approved drawings',
+      'Bar location (top/bottom mat, layer order) matches drawings',
+      'Lap lengths and locations comply with drawings/details',
+      'Reinforcement free of loose rust, oil, mud or other bond-reducing contamination',
+    ]
+  },
+  {
+    name:'Cover',
+    items:[
+      'Correct cover achieved to all faces (top, bottom, sides)',
+      'Bar chairs / spacers installed at correct spacing to hold cover',
+      'Cover verified with cover meter or direct measurement where required',
+      'No reinforcement in contact with formwork or ground',
+    ]
+  },
+  {
+    name:'Chairing',
+    items:[
+      'Chair type and rating appropriate for the load and mat height',
+      'Chairs seated securely on formwork/substrate — not displaced or tilting',
+      'Chair spacing sufficient to prevent mat sag during pour',
+      'Continuity/top-mat chairs (high chairs) correctly positioned where required',
+    ]
+  },
+  {
+    name:'Formwork',
+    items:[
+      'Formwork alignment, line and level within tolerance',
+      'Surface condition acceptable for specified finish class',
+      'Form ties correctly positioned and tensioned',
+      'Release agent applied evenly, kept clear of reinforcement and construction joints',
+      'Openings, penetrations and cast-in items secured and correctly located',
+      'Formwork braced and stable for the anticipated pour rate/pressure',
+    ]
+  },
+];
+
+/* =====================================================================
+   STATE / NAV
+===================================================================== */
+let state = {module:'reo', view:'reoTables', settingsOpen:false};
+let preserveScrollOnce = false;
+
+document.getElementById('settingsToggle').addEventListener('click', ()=>{
+  state.settingsOpen = true;
+  render();
+});
+
+document.getElementById('moduleSwitch').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  setModule(btn.dataset.module);
+});
+document.getElementById('tabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  setModule(btn.dataset.module);
+});
+document.getElementById('subnavReo').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  setView(btn.dataset.view);
+});
+document.getElementById('subnavConc').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  setView(btn.dataset.view);
+});
+
+function setModule(m){
+  state.module = m;
+  state.settingsOpen = false;
+  document.querySelectorAll('#moduleSwitch button').forEach(b=>b.classList.toggle('active', b.dataset.module===m));
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active', b.dataset.module===m));
+  document.getElementById('subnavReo').style.display = (m==='reo') ? 'flex' : 'none';
+  document.getElementById('subnavConc').style.display = (m==='conc') ? 'flex' : 'none';
+  if(m==='reo') setView('reoTables');
+  else if(m==='conc') setView('coverGuide');
+  else setView('checklist');
+}
+function setView(v){
+  state.view = v;
+  state.settingsOpen = false;
+  document.querySelectorAll('#subnavReo button, #subnavConc button').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+  render();
+}
+
+/* =====================================================================
+   CALCULATIONS
+===================================================================== */
+function providedAst(barArea, spacing){ return barArea*1000/spacing; }
+
+function devLenTension({db, fc, k1, cover, spacing}){
+  const fcEff = Math.min(fc, 65);
+  const fsy = 500;
+  const k2 = (132-db)/100;
+  let cd = cover;
+  if(spacing) cd = Math.min(cover, spacing/2);
+  let k3 = 1.0 - 0.15*(cd-db)/db;
+  k3 = Math.max(0.7, Math.min(1.0, k3));
+  const calc = (0.5*k1*k3*fsy*db)/(k2*Math.sqrt(fcEff));
+  const minLen = 0.058*fsy*k1*db;
+  return {L: Math.max(calc,minLen), k2, k3, calc, minLen, cd};
+}
+function devLenCompression({db, fc}){
+  const fcEff = Math.min(fc, 65);
+  const fsy = 500;
+  const calc = 0.22*fsy*db/Math.sqrt(fcEff);
+  const minLen = 0.0435*fsy*db;
+  return {L: Math.max(calc,minLen), calc, minLen};
+}
+function lapTension({db, fc, k1, cover, spacing, k7}){
+  const dev = devLenTension({db,fc,k1,cover,spacing});
+  const calc = k7*dev.L;
+  const floor1 = 29*db;
+  const floor2 = 300;
+  return {L: Math.max(calc,floor1,floor2), dev, calc, floor1, floor2};
+}
+function lapCompression({db, fc}){
+  const dev = devLenCompression({db,fc});
+  const floor1 = 40*db;
+  const floor2 = 300;
+  return {L: Math.max(dev.L,floor1,floor2), dev, floor1, floor2};
+}
+function round5(x){ return Math.round(x/5)*5; }
+function esc(s){ return (s||'').replace(/"/g,'&quot;'); }
+const MU_COLORS = ['#E5484D','#3FB27F','#3B82C4','#111111'];
+function fileToScaledDataUrl(file, maxDim){
+  maxDim = maxDim || 1400;
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          const scale = maxDim / Math.max(w,h);
+          w = Math.round(w*scale); h = Math.round(h*scale);
+        }
+        const cnv = document.createElement('canvas');
+        cnv.width = w; cnv.height = h;
+        cnv.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve({dataUrl: cnv.toDataURL('image/jpeg', 0.85), width:w, height:h});
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* =====================================================================
+   TOAST (undo)
+===================================================================== */
+let toastTimer = null;
+function showToast(message, actionLabel, actionFn){
+  const el = document.getElementById('toast');
+  el.innerHTML = `<span>${message}</span>` + (actionLabel ? `<button id="toastAction">${actionLabel}</button>` : '');
+  if(actionLabel){
+    el.querySelector('#toastAction').addEventListener('click', ()=>{
+      hideToast();
+      if(actionFn) actionFn();
+    });
+  }
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, 5000);
+}
+function hideToast(){
+  document.getElementById('toast').classList.remove('show');
+}
+
+/* =====================================================================
+   SETTINGS (name/position/company/signature — persisted globally)
+===================================================================== */
+const SETTINGS_KEY = 'concrete_companion_settings';
+function loadSettings(){
+  try{ return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveSettings(s){ try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }catch(e){} }
+
+/* Reusable signature capture widget: draw or upload, calls onChange(dataUrl) */
+function buildSignaturePad(container, opts){
+  opts = opts || {};
+  let current = opts.value || '';
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+    <div class="sig-tabs">
+      <button data-mode="draw" class="on">Draw</button>
+      <button data-mode="upload">Upload image</button>
+    </div>
+    <div class="sig-draw">
+      <div class="sig-pad-wrap"><canvas></canvas></div>
+      <div class="btnrow" style="margin-top:8px;">
+        <button class="btn" data-action="sig-clear">Clear</button>
+        <button class="btn primary" data-action="sig-save">Save signature</button>
+      </div>
+    </div>
+    <div class="sig-upload" style="display:none;">
+      <input type="file" accept="image/*" class="sig-file">
+    </div>
+    <div class="sig-preview-wrap" style="margin-top:10px;">
+      <label style="margin-top:0;">Current saved signature</label>
+      <div class="sig-preview"><img class="sig-preview-img" style="display:none;"><span class="sig-preview-empty" style="font-size:12px; color:var(--text-faint);">None saved yet</span></div>
+      <button class="btn danger sig-remove" style="width:100%; margin-top:8px;">Remove signature</button>
+    </div>`;
+  container.appendChild(wrap);
+
+  const tabs = wrap.querySelector('.sig-tabs');
+  const drawBox = wrap.querySelector('.sig-draw');
+  const uploadBox = wrap.querySelector('.sig-upload');
+  const canvas = wrap.querySelector('canvas');
+  const previewImg = wrap.querySelector('.sig-preview-img');
+  const previewEmpty = wrap.querySelector('.sig-preview-empty');
+  const removeBtn = wrap.querySelector('.sig-remove');
+
+  canvas.width = 600; canvas.height = 220;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.lineCap='round'; ctx.lineJoin='round';
+
+  function updatePreview(){
+    if(current){
+      previewImg.src = current; previewImg.style.display='block'; previewEmpty.style.display='none';
+    } else {
+      previewImg.style.display='none'; previewEmpty.style.display='block';
+    }
+  }
+  updatePreview();
+
+  tabs.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    tabs.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+    drawBox.style.display = b.dataset.mode==='draw' ? 'block':'none';
+    uploadBox.style.display = b.dataset.mode==='upload' ? 'block':'none';
+  });
+
+  let drawing=false;
+  function getPos(e){
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
+    return [(e.clientX-rect.left)*scaleX, (e.clientY-rect.top)*scaleY];
+  }
+  canvas.addEventListener('pointerdown', e=>{
+    e.preventDefault(); canvas.setPointerCapture(e.pointerId);
+    drawing = true; const [x,y] = getPos(e); ctx.beginPath(); ctx.moveTo(x,y);
+  });
+  canvas.addEventListener('pointermove', e=>{
+    if(!drawing) return; e.preventDefault();
+    const [x,y] = getPos(e); ctx.lineTo(x,y); ctx.stroke();
+  });
+  function endStroke(){ drawing = false; }
+  canvas.addEventListener('pointerup', endStroke);
+  canvas.addEventListener('pointercancel', endStroke);
+
+  wrap.querySelector('[data-action="sig-clear"]').addEventListener('click', ()=>{
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  });
+  wrap.querySelector('[data-action="sig-save"]').addEventListener('click', ()=>{
+    current = canvas.toDataURL('image/png');
+    updatePreview();
+    if(opts.onChange) opts.onChange(current);
+  });
+  wrap.querySelector('.sig-file').addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    try{
+      const {dataUrl} = await fileToScaledDataUrl(file, 800);
+      current = dataUrl;
+      updatePreview();
+      if(opts.onChange) opts.onChange(current);
+    }catch(err){ alert('Could not load that image.'); }
+  });
+  removeBtn.addEventListener('click', ()=>{
+    current = '';
+    updatePreview();
+    if(opts.onChange) opts.onChange(current);
+  });
+
+  return { getValue: ()=>current };
+}
+
+function renderSettings(main){
+  const s = loadSettings();
+  const head = document.createElement('div'); head.className='settings-header';
+  head.innerHTML = `<button id="settingsBack" aria-label="Back">←</button><h2>Report settings</h2>`;
+  main.appendChild(head);
+  head.querySelector('#settingsBack').addEventListener('click', ()=>{ state.settingsOpen=false; render(); });
+
+  main.appendChild(disclaimer('These details pre-fill new inspection reports (name, position, company and signature) and can still be edited on any individual report without changing what\'s saved here.'));
+
+  const c = document.createElement('div'); c.className='card';
+  c.innerHTML = `
+    <h2>Your details</h2>
+    <label>Name</label>
+    <input type="text" id="setName" value="${esc(s.name)}">
+    <label>Position</label>
+    <input type="text" id="setPosition" value="${esc(s.position)}" placeholder="e.g. Associate | Structural Engineer">
+    <label>Company</label>
+    <input type="text" id="setCompany" value="${esc(s.company)}">`;
+  main.appendChild(c);
+  ['setName','setPosition','setCompany'].forEach(id=>{
+    c.querySelector('#'+id).addEventListener('input', ()=>{
+      const cur = loadSettings();
+      cur.name = c.querySelector('#setName').value;
+      cur.position = c.querySelector('#setPosition').value;
+      cur.company = c.querySelector('#setCompany').value;
+      saveSettings(cur);
+    });
+  });
+
+  const sigCard = document.createElement('div'); sigCard.className='card';
+  sigCard.innerHTML = `<h2>Signature</h2><p class="desc">Draw once or upload a scanned signature — it's saved to this device and reused on every report.</p>`;
+  main.appendChild(sigCard);
+  buildSignaturePad(sigCard, {
+    value: s.signatureDataUrl || '',
+    onChange: (dataUrl)=>{
+      const cur = loadSettings();
+      cur.signatureDataUrl = dataUrl;
+      saveSettings(cur);
+    }
+  });
+}
+function render(){
+  const main = document.getElementById('main');
+  const prevScroll = main.scrollTop;
+  const renderers = {
+    reoTables: renderReoTables,
+    astCalc: renderAstCalc,
+    spacingCalc: renderSpacingCalc,
+    lapCalc: renderLapCalc,
+    devCalc: renderDevCalc,
+    coverGuide: renderCoverGuide,
+    defectLib: renderDefectLib,
+    checklist: renderChecklist,
+  };
+  main.innerHTML = '';
+  if(state.settingsOpen){
+    renderSettings(main);
+  } else {
+    (renderers[state.view] || renderReoTables)(main);
+  }
+  if(preserveScrollOnce){
+    main.scrollTop = prevScroll;
+    preserveScrollOnce = false;
+  } else {
+    main.scrollTop = 0;
+  }
+}
+function rerenderPreservingScroll(){
+  preserveScrollOnce = true;
+  render();
+}
+
+function disclaimer(text){
+  const d = document.createElement('div');
+  d.className = 'disclaimer';
+  d.innerHTML = `<span class="ic">!</span><span>${text}</span>`;
+  return d;
+}
+function clauseTag(txt){ return `<span class="clause">${txt}</span>`; }
+
+/* ---------- Reinforcement: Tables ---------- */
+function renderReoTables(main){
+  main.appendChild(disclaimer('Bar and mesh areas per AS/NZS 4671 (Grade D500N deformed bar). Confirm against the current mill certificate and project specification before use in QA sign-off.'));
+
+  const c1 = document.createElement('div'); c1.className='card';
+  c1.innerHTML = `
+    <h2>Bar designations</h2>
+    <div class="clause">AS/NZS 4671 — Grade D500N</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Bar</th><th>Nom. dia (mm)</th><th>Area (mm²)</th></tr></thead>
+      <tbody>${BARS.map(b=>`<tr><td>N${b.size}</td><td>${b.size}</td><td>${b.area}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  main.appendChild(c1);
+
+  const c2 = document.createElement('div'); c2.className='card';
+  c2.innerHTML = `
+    <h2>Provided Ast at standard spacings</h2>
+    <p class="desc">Cross-sectional area per metre width (mm²/m), Ast = 1000 × bar area ÷ spacing.</p>
+    <label>Bar size</label>
+    <select id="reoBarSel">${BARS.map(b=>`<option value="${b.size}">N${b.size}</option>`).join('')}</select>
+    <div class="table-wrap" style="margin-top:12px;"><table>
+      <thead><tr><th>Spacing (mm)</th><th>Ast (mm²/m)</th></tr></thead>
+      <tbody id="reoSpaceBody"></tbody>
+    </table></div>`;
+  main.appendChild(c2);
+  const sel = c2.querySelector('#reoBarSel');
+  const body = c2.querySelector('#reoSpaceBody');
+  function fillSpaceTable(){
+    const bar = BARS.find(b=>b.size==sel.value);
+    body.innerHTML = SPACINGS.map(s=>`<tr><td>${s}</td><td>${Math.round(providedAst(bar.area,s))}</td></tr>`).join('');
+  }
+  sel.addEventListener('change', fillSpaceTable);
+  fillSpaceTable();
+
+  const c3 = document.createElement('div'); c3.className='card';
+  c3.innerHTML = `
+    <h2>Square mesh</h2>
+    <div class="clause">AS/NZS 4671 — both directions equal</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Mesh</th><th>Wire dia (mm)</th><th>Cts (mm)</th><th>Ast (mm²/m)</th></tr></thead>
+      <tbody>${SQUARE_MESH.map(m=>`<tr><td>${m.name}</td><td>${m.dia}</td><td>${m.cts}</td><td>${m.ast}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  main.appendChild(c3);
+
+  const c4 = document.createElement('div'); c4.className='card';
+  c4.innerHTML = `
+    <h2>Rectangular mesh</h2>
+    <div class="clause">Longitudinal (main) / cross wire</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Mesh</th><th>Long dia</th><th>Long cts</th><th>Long Ast</th><th>Cross Ast</th></tr></thead>
+      <tbody>${RECT_MESH.map(m=>`<tr><td>${m.name}</td><td>${m.longDia}</td><td>${m.longCts}</td><td>${m.longAst}</td><td>${m.crossAst}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  main.appendChild(c4);
+}
+
+/* ---------- Reinforcement: Ast check ---------- */
+function renderAstCalc(main){
+  main.appendChild(disclaimer('Confirms provided reinforcement against a design requirement. Does not substitute for the structural drawings/computations — use the value or bar callout from the approved design.'));
+  const c = document.createElement('div'); c.className='card';
+  c.innerHTML = `
+    <h2>Provided vs required Ast</h2>
+    ${clauseTag('Ref. AS 3600:2018 Section 8/9')}
+
+    <label>Reinforcement provided as</label>
+    <div class="seg" id="acProvMode">
+      <button class="on" data-v="spacing">Bar size @ spacing</button>
+      <button data-v="count">Number of bars</button>
+    </div>
+
+    <div id="acProvSpacing">
+      <label>Bar size installed</label>
+      <select id="acBar">${BARS.map(b=>`<option value="${b.size}">N${b.size}</option>`).join('')}</select>
+      <label>Spacing as installed (mm c/c)</label>
+      <input type="number" id="acSpacing" inputmode="decimal" placeholder="e.g. 200" value="200">
+    </div>
+    <div id="acProvCount" style="display:none;">
+      <label>Number of bars — e.g. 2 for 2/N20</label>
+      <input type="number" id="acCount" inputmode="decimal" placeholder="e.g. 2" value="2">
+      <label>Bar size</label>
+      <select id="acBarCount">${BARS.map(b=>`<option value="${b.size}">N${b.size}</option>`).join('')}</select>
+    </div>
+
+    <label style="margin-top:18px;">Compare against</label>
+    <div class="seg" id="acCompMode">
+      <button class="on" data-v="value">Enter Ast value</button>
+      <button data-v="ref">Bar size &amp; spacing</button>
+    </div>
+
+    <div id="acCompValue">
+      <label id="acReqLabel">Design Ast required (mm²/m)</label>
+      <input type="number" id="acReq" inputmode="decimal" placeholder="e.g. 550" value="550">
+    </div>
+    <div id="acCompRef" style="display:none;"></div>
+
+    <div class="result" id="acResult"></div>`;
+  main.appendChild(c);
+
+  const provModeSeg = c.querySelector('#acProvMode');
+  const provSpacingBox = c.querySelector('#acProvSpacing');
+  const provCountBox = c.querySelector('#acProvCount');
+  const bar = c.querySelector('#acBar'), sp = c.querySelector('#acSpacing');
+  const count = c.querySelector('#acCount'), barCount = c.querySelector('#acBarCount');
+
+  const compModeSeg = c.querySelector('#acCompMode');
+  const compValueBox = c.querySelector('#acCompValue');
+  const compRefBox = c.querySelector('#acCompRef');
+  const reqLabel = c.querySelector('#acReqLabel');
+  const req = c.querySelector('#acReq');
+
+  const out = c.querySelector('#acResult');
+  let provMode = 'spacing', compMode = 'value';
+
+  function buildCompRefFields(){
+    if(provMode==='spacing'){
+      compRefBox.innerHTML = `
+        <label>Design bar size</label>
+        <select id="acRefBar">${BARS.map(b=>`<option value="${b.size}">N${b.size}</option>`).join('')}</select>
+        <label>Design spacing (mm c/c)</label>
+        <input type="number" id="acRefSpacing" inputmode="decimal" value="200">`;
+    } else {
+      compRefBox.innerHTML = `
+        <label>Design number of bars</label>
+        <input type="number" id="acRefCount" inputmode="decimal" value="2">
+        <label>Design bar size</label>
+        <select id="acRefBar">${BARS.map(b=>`<option value="${b.size}">N${b.size}</option>`).join('')}</select>`;
+    }
+    compRefBox.querySelectorAll('select,input').forEach(el=>el.addEventListener('input',calc));
+  }
+
+  provModeSeg.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    provMode = b.dataset.v;
+    [...provModeSeg.children].forEach(x=>x.classList.toggle('on', x===b));
+    provSpacingBox.style.display = provMode==='spacing' ? 'block':'none';
+    provCountBox.style.display = provMode==='count' ? 'block':'none';
+    compModeSeg.querySelector('[data-v="ref"]').textContent = provMode==='spacing' ? 'Bar size & spacing' : 'Bar size & count';
+    reqLabel.textContent = `Design Ast required (${provMode==='spacing' ? 'mm²/m' : 'mm²'})`;
+    if(compMode==='ref') buildCompRefFields();
+    calc();
+  });
+
+  compModeSeg.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    compMode = b.dataset.v;
+    [...compModeSeg.children].forEach(x=>x.classList.toggle('on', x===b));
+    compValueBox.style.display = compMode==='value' ? 'block':'none';
+    compRefBox.style.display = compMode==='ref' ? 'block':'none';
+    if(compMode==='ref') buildCompRefFields();
+    calc();
+  });
+
+  function getProvided(){
+    if(provMode==='spacing'){
+      const b = BARS.find(x=>x.size==bar.value);
+      const spacing = parseFloat(sp.value)||0;
+      if(spacing<=0) return null;
+      return {value: providedAst(b.area, spacing), unit:'mm²/m', desc:`N${b.size} @ ${spacing} mm c/c`};
+    } else {
+      const n = parseFloat(count.value)||0;
+      const b = BARS.find(x=>x.size==barCount.value);
+      if(n<=0) return null;
+      return {value: n*b.area, unit:'mm²', desc:`${n}/N${b.size}`};
+    }
+  }
+  function getRequired(){
+    if(compMode==='value'){
+      const v = parseFloat(req.value)||0;
+      return {value:v, unit: provMode==='spacing' ? 'mm²/m':'mm²', desc:'entered value'};
+    }
+    const refBar = compRefBox.querySelector('#acRefBar');
+    if(!refBar) return null;
+    const b = BARS.find(x=>x.size==refBar.value);
+    if(provMode==='spacing'){
+      const refSp = compRefBox.querySelector('#acRefSpacing');
+      const spacing = parseFloat(refSp.value)||0;
+      if(spacing<=0) return null;
+      return {value: providedAst(b.area, spacing), unit:'mm²/m', desc:`N${b.size} @ ${spacing} mm c/c`};
+    } else {
+      const refCount = compRefBox.querySelector('#acRefCount');
+      const n = parseFloat(refCount.value)||0;
+      if(n<=0) return null;
+      return {value: n*b.area, unit:'mm²', desc:`${n}/N${b.size}`};
+    }
+  }
+
+  function calc(){
+    const provided = getProvided();
+    const required = getRequired();
+    if(!provided){ out.innerHTML = '<div class="hint">Enter a valid spacing / bar count greater than zero.</div>'; return; }
+    if(!required){ out.innerHTML = '<div class="hint">Enter a valid comparison value.</div>'; return; }
+    const pass = provided.value >= required.value;
+    const margin = provided.value - required.value;
+    out.innerHTML = `
+      <div class="label">Provided Ast (${provided.desc})</div>
+      <div class="big">${provided.value.toFixed(0)} ${provided.unit}</div>
+      <div class="verdict ${pass?'ok':'bad'}">${pass ? 'PASS — provided ≥ required' : 'FAIL — provided < required'}</div>
+      <div class="subresult"><span>Required (${required.desc})</span><span>${required.value.toFixed(0)} ${required.unit}</span></div>
+      <div class="subresult"><span>Margin</span><span>${(margin>=0?'+':'')}${margin.toFixed(0)} ${provided.unit} (${required.value?((provided.value/required.value-1)*100).toFixed(1):'—'}%)</span></div>`;
+  }
+  [bar,sp,count,barCount,req].forEach(el=>el.addEventListener('input',calc));
+  calc();
+}
+
+/* ---------- Reinforcement: spacing calc ---------- */
+function renderSpacingCalc(main){
+  main.appendChild(disclaimer('Suggests a spacing to meet a target Ast. Round down (tighter spacing) to stay conservative, and check the result against practical fixing tolerances and bar-spacing minimums (aggregate size, cover).'));
+  const c = document.createElement('div'); c.className='card';
+  c.innerHTML = `
+    <h2>Required bar spacing</h2>
+    ${clauseTag('Spacing = 1000 × bar area ÷ target Ast')}
+
+    <label>Target reinforcement given as</label>
+    <div class="seg" id="scTargetMode">
+      <button class="on" data-v="ref">Bar size &amp; spacing</button>
+      <button data-v="value">Ast value</button>
+    </div>
+    <div id="scTargetRef">
+      <label>Design bar size</label>
+      <select id="scRefBar">${BARS.map(b=>`<option value="${b.size}">N${b.size}</option>`).join('')}</select>
+      <label>Design spacing (mm c/c)</label>
+      <input type="number" id="scRefSpacing" inputmode="decimal" value="200">
+    </div>
+    <div id="scTargetValue" style="display:none;">
+      <label>Target Ast (mm²/m)</label>
+      <input type="number" id="scTarget" inputmode="decimal" value="550">
+    </div>
+
+    <label style="margin-top:18px;">Bar size to install</label>
+    <select id="scBar">${BARS.map(b=>`<option value="${b.size}">N${b.size}</option>`).join('')}</select>
+
+    <div class="result" id="scResult"></div>`;
+  main.appendChild(c);
+
+  const targetModeSeg = c.querySelector('#scTargetMode');
+  const targetRefBox = c.querySelector('#scTargetRef');
+  const targetValueBox = c.querySelector('#scTargetValue');
+  const refBar = c.querySelector('#scRefBar'), refSpacing = c.querySelector('#scRefSpacing');
+  const target = c.querySelector('#scTarget');
+  const bar = c.querySelector('#scBar'), out = c.querySelector('#scResult');
+  let targetMode = 'ref';
+
+  targetModeSeg.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    targetMode = b.dataset.v;
+    [...targetModeSeg.children].forEach(x=>x.classList.toggle('on', x===b));
+    targetRefBox.style.display = targetMode==='ref' ? 'block':'none';
+    targetValueBox.style.display = targetMode==='value' ? 'block':'none';
+    calc();
+  });
+
+  function getTargetAst(){
+    if(targetMode==='value'){
+      const t = parseFloat(target.value)||0;
+      return t>0 ? {value:t, desc:'entered value'} : null;
+    }
+    const b = BARS.find(x=>x.size==refBar.value);
+    const spacing = parseFloat(refSpacing.value)||0;
+    if(spacing<=0) return null;
+    return {value: providedAst(b.area, spacing), desc:`N${b.size} @ ${spacing} mm c/c`};
+  }
+
+  function calc(){
+    const t = getTargetAst();
+    if(!t){ out.innerHTML = '<div class="hint">Enter a target greater than zero.</div>'; return; }
+    const b = BARS.find(x=>x.size==bar.value);
+    const exact = b.area*1000/t.value;
+    const practical = round5(Math.floor(exact/5)*5);
+    const practicalAst = providedAst(b.area, practical);
+    out.innerHTML = `
+      <div class="label">Target Ast (${t.desc})</div>
+      <div class="subresult" style="border-top:none; padding-top:0;"><span>Required Ast</span><span>${t.value.toFixed(0)} mm²/m</span></div>
+      <div class="big" style="margin-top:10px;">${exact.toFixed(0)} mm c/c</div>
+      <div class="label" style="margin-top:2px;">Exact spacing required — N${b.size}</div>
+      <div class="subresult"><span>Practical spacing (round down, 5 mm)</span><span>${practical} mm c/c</span></div>
+      <div class="subresult"><span>Ast at practical spacing</span><span>${practicalAst.toFixed(0)} mm²/m</span></div>`;
+  }
+  [refBar,refSpacing,target,bar].forEach(el=>el.addEventListener('input',calc));
+  calc();
+}
+
+/* ---------- Reinforcement: lap length ---------- */
+function renderLapCalc(main){
+  main.appendChild(disclaimer('Simplified field calculator per AS 3600:2018 Cl 13.2, using default D500N properties. For congested layouts, epoxy-coated bar, lightweight concrete or bundled bars, confirm with the project engineer — those cases apply additional multipliers not covered here.'));
+  const c = document.createElement('div'); c.className='card';
+  c.innerHTML = `
+    <h2>Lap length</h2>
+    ${clauseTag('AS 3600:2018 Cl 13.2')}
+    <label>Bar size</label>
+    <select id="lcBar">${BARS.map(b=>`<option value="${b.size}">N${b.size}</option>`).join('')}</select>
+    <label>Characteristic concrete strength f'c (MPa)</label>
+    <select id="lcFc">
+      <option>20</option><option>25</option><option selected>32</option><option>40</option><option>50</option><option>65</option>
+    </select>
+    <label>Splice type</label>
+    <div class="seg" id="lcType"><button class="on" data-v="tension">Tension</button><button data-v="compression">Compression</button></div>
+
+    <div id="lcTensionInputs">
+      <label>Bar orientation</label>
+      <div class="seg" id="lcK1"><button class="on" data-v="1.0">Bottom-cast (k1=1.0)</button><button data-v="1.3">Top-cast, ≥300mm below (k1=1.3)</button></div>
+      <label>Cover to bar (mm)</label>
+      <input type="number" id="lcCover" inputmode="decimal" value="40">
+      <label>Clear spacing between bars (mm) — optional</label>
+      <input type="number" id="lcSpacing" inputmode="decimal" placeholder="leave blank if unknown">
+      <label>Splice condition</label>
+      <div class="seg" id="lcK7"><button class="on" data-v="1.0">Standard (≤50% lapped, adequate spacing)</button><button data-v="1.25">Congested / &gt;50% lapped</button></div>
+    </div>
+
+    <div class="result" id="lcResult"></div>`;
+  main.appendChild(c);
+
+  const barSel = c.querySelector('#lcBar'), fcSel = c.querySelector('#lcFc');
+  const typeSeg = c.querySelector('#lcType'), k1Seg = c.querySelector('#lcK1'), k7Seg = c.querySelector('#lcK7');
+  const cover = c.querySelector('#lcCover'), spacing = c.querySelector('#lcSpacing');
+  const tensionInputs = c.querySelector('#lcTensionInputs');
+  const out = c.querySelector('#lcResult');
+  let type='tension', k1=1.0, k7=1.0;
+
+  typeSeg.addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return;
+    type=b.dataset.v; [...typeSeg.children].forEach(x=>x.classList.toggle('on',x===b));
+    tensionInputs.style.display = type==='tension' ? 'block':'none'; calc(); });
+  k1Seg.addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return;
+    k1=parseFloat(b.dataset.v); [...k1Seg.children].forEach(x=>x.classList.toggle('on',x===b)); calc(); });
+  k7Seg.addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return;
+    k7=parseFloat(b.dataset.v); [...k7Seg.children].forEach(x=>x.classList.toggle('on',x===b)); calc(); });
+
+  function calc(){
+    const db = parseFloat(barSel.value);
+    const fc = parseFloat(fcSel.value);
+    if(type==='tension'){
+      const cv = parseFloat(cover.value)||db;
+      const sp = spacing.value ? parseFloat(spacing.value) : null;
+      const r = lapTension({db,fc,k1,cover:cv,spacing:sp,k7});
+      out.innerHTML = `
+        <div class="label">Tension lap length, Lsy.t.lap</div>
+        <div class="big">${Math.ceil(r.L)} mm</div>
+        <div class="subresult"><span>Basic development length Lsy.t</span><span>${Math.ceil(r.dev.L)} mm</span></div>
+        <div class="subresult"><span>k7 (splice factor)</span><span>${k7.toFixed(2)}</span></div>
+        <div class="subresult"><span>k1 / k2 / k3</span><span>${k1.toFixed(2)} / ${r.dev.k2.toFixed(2)} / ${r.dev.k3.toFixed(2)}</span></div>
+        <div class="subresult"><span>Minimums (29 db / 300 mm)</span><span>${r.floor1} / ${r.floor2} mm</span></div>`;
+    } else {
+      const r = lapCompression({db,fc});
+      out.innerHTML = `
+        <div class="label">Compression lap length, Lsy.c.lap</div>
+        <div class="big">${Math.ceil(r.L)} mm</div>
+        <div class="subresult"><span>Basic compression dev. length</span><span>${Math.ceil(r.dev.L)} mm</span></div>
+        <div class="subresult"><span>Minimums (40 db / 300 mm)</span><span>${r.floor1} / ${r.floor2} mm</span></div>`;
+    }
+  }
+  [barSel,fcSel,cover,spacing].forEach(el=>el.addEventListener('input',calc));
+  calc();
+}
+
+/* ---------- Reinforcement: development length ---------- */
+function renderDevCalc(main){
+  main.appendChild(disclaimer('Simplified field calculator per AS 3600:2018 Cl 13.1, using default D500N properties (fsy = 500 MPa) and f\'c capped at 65 MPa per the clause. Hooked/cogged bar reductions, transverse steel refinement (k4/k5) and bundled-bar cases are not covered — confirm with the project engineer where these apply.'));
+  const c = document.createElement('div'); c.className='card';
+  c.innerHTML = `
+    <h2>Development length</h2>
+    ${clauseTag('AS 3600:2018 Cl 13.1')}
+    <label>Bar size</label>
+    <select id="dcBar">${BARS.map(b=>`<option value="${b.size}">N${b.size}</option>`).join('')}</select>
+    <label>Characteristic concrete strength f'c (MPa)</label>
+    <select id="dcFc"><option>20</option><option>25</option><option selected>32</option><option>40</option><option>50</option><option>65</option></select>
+    <label>Splice type</label>
+    <div class="seg" id="dcType"><button class="on" data-v="tension">Tension</button><button data-v="compression">Compression</button></div>
+    <div id="dcTensionInputs">
+      <label>Bar orientation</label>
+      <div class="seg" id="dcK1"><button class="on" data-v="1.0">Bottom-cast (k1=1.0)</button><button data-v="1.3">Top-cast, ≥300mm below (k1=1.3)</button></div>
+      <label>Cover to bar, cd (mm)</label>
+      <input type="number" id="dcCover" inputmode="decimal" value="40">
+      <label>Clear spacing between bars (mm) — optional</label>
+      <input type="number" id="dcSpacing" inputmode="decimal" placeholder="leave blank if unknown">
+    </div>
+    <div class="result" id="dcResult"></div>`;
+  main.appendChild(c);
+
+  const barSel = c.querySelector('#dcBar'), fcSel = c.querySelector('#dcFc');
+  const typeSeg = c.querySelector('#dcType'), k1Seg = c.querySelector('#dcK1');
+  const cover = c.querySelector('#dcCover'), spacing = c.querySelector('#dcSpacing');
+  const tensionInputs = c.querySelector('#dcTensionInputs');
+  const out = c.querySelector('#dcResult');
+  let type='tension', k1=1.0;
+
+  typeSeg.addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return;
+    type=b.dataset.v; [...typeSeg.children].forEach(x=>x.classList.toggle('on',x===b));
+    tensionInputs.style.display = type==='tension' ? 'block':'none'; calc(); });
+  k1Seg.addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return;
+    k1=parseFloat(b.dataset.v); [...k1Seg.children].forEach(x=>x.classList.toggle('on',x===b)); calc(); });
+
+  function calc(){
+    const db = parseFloat(barSel.value);
+    const fc = parseFloat(fcSel.value);
+    if(type==='tension'){
+      const cv = parseFloat(cover.value)||db;
+      const sp = spacing.value ? parseFloat(spacing.value) : null;
+      const r = devLenTension({db,fc,k1,cover:cv,spacing:sp});
+      out.innerHTML = `
+        <div class="label">Basic development length, Lsy.tb</div>
+        <div class="big">${Math.ceil(r.L)} mm</div>
+        <div class="subresult"><span>k1 / k2 / k3</span><span>${k1.toFixed(2)} / ${r.k2.toFixed(2)} / ${r.k3.toFixed(2)}</span></div>
+        <div class="subresult"><span>Effective cover, cd used</span><span>${r.cd.toFixed(0)} mm</span></div>
+        <div class="subresult"><span>Calculated / minimum (0.058·fsy·k1·db)</span><span>${r.calc.toFixed(0)} / ${r.minLen.toFixed(0)} mm</span></div>`;
+    } else {
+      const r = devLenCompression({db,fc});
+      out.innerHTML = `
+        <div class="label">Basic compression development length, Lsy.cb</div>
+        <div class="big">${Math.ceil(r.L)} mm</div>
+        <div class="subresult"><span>Calculated / minimum (0.0435·fsy·db)</span><span>${r.calc.toFixed(0)} / ${r.minLen.toFixed(0)} mm</span></div>`;
+    }
+  }
+  [barSel,fcSel,cover,spacing].forEach(el=>el.addEventListener('input',calc));
+  calc();
+}
+
+/* ---------- Concrete: cover guide ---------- */
+function renderCoverGuide(main){
+  main.appendChild(disclaimer('Cover shown is nominal, indicative and simplified for common conditions only. The structural drawings and durability specification always govern — confirm exposure classification, concrete grade and nominal cover before pour approval.'));
+
+  const c = document.createElement('div'); c.className='card';
+  c.innerHTML = `<h2>Cover by environment</h2>${clauseTag('Ref. AS 3600:2018 Section 4 / Table 4.10.3.2')}`;
+  COVER_ENV.forEach(row=>{
+    const item = document.createElement('div');
+    item.style.cssText='padding:12px 0; border-top:1px solid var(--border-soft);';
+    item.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px;">
+        <b style="font-size:14px;">${row.env}</b>
+        <span style="font-family:var(--mono); color:var(--amber-ink); font-weight:700; font-size:15px; white-space:nowrap;">${row.cover}</span>
+      </div>
+      <div class="pillrow"><span class="pl">Exposure: ${row.ec}</span><span class="pl">${row.fc}</span></div>
+      <div style="font-size:12px; color:var(--text-dim); margin-top:6px; line-height:1.5;">${row.note}</div>`;
+    c.appendChild(item);
+  });
+  main.appendChild(c);
+
+  const c2 = document.createElement('div'); c2.className='card';
+  c2.innerHTML = `<h2>Required cover vs f'c</h2>${clauseTag("Table 4.10.3.2 — standard formwork &amp; compaction")}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Class</th>${COVER_TABLE.fc.map(f=>`<th>${f} MPa</th>`).join('')}</tr></thead>
+      <tbody>${COVER_TABLE.rows.map(r=>`<tr><td>${r.ec}</td>${r.vals.map((v,i)=>`<td>${v===null?'—':(r.bracket[i]?`(${v})`:v)}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>
+    <div class="hint">Bracketed values require the strength-grade concession of Cl 4.3.2 — confirm applicability before use. Cover in mm.</div>`;
+  main.appendChild(c2);
+}
+
+/* ---------- Concrete: defect library ---------- */
+function renderDefectLib(main){
+  main.appendChild(disclaimer('General identification guidance only. Any defect that may affect structural capacity, durability or cover must be assessed and dispositioned by the project structural engineer before acceptance or repair.'));
+  const search = document.createElement('div'); search.className='searchbox';
+  search.innerHTML = `<input type="text" id="defSearch" placeholder="Search defects…">`;
+  main.appendChild(search);
+
+  const list = document.createElement('div');
+  main.appendChild(list);
+
+  function build(filter){
+    list.innerHTML='';
+    const f = (filter||'').toLowerCase();
+    DEFECTS.filter(d=> !f || d.name.toLowerCase().includes(f) || d.desc.toLowerCase().includes(f)).forEach((d,i)=>{
+      const acc = document.createElement('div'); acc.className='accordion';
+      acc.innerHTML = `
+        <div class="head"><h3>${d.name}</h3><span class="chev">▾</span></div>
+        <div class="body">
+          <span class="tag">${d.tag}</span>
+          <p><b>Description —</b> ${d.desc}</p>
+          <p><b>Typical causes —</b> ${d.causes}</p>
+          <p><b>On-site identification —</b> ${d.id}</p>
+          <p><b>Remediation reference —</b> ${d.remediation}</p>
+        </div>`;
+      acc.querySelector('.head').addEventListener('click', ()=> acc.classList.toggle('open'));
+      list.appendChild(acc);
+    });
+  }
+  build('');
+  search.querySelector('#defSearch').addEventListener('input', e=>build(e.target.value));
+}
+
+/* ---------- Checklist ---------- */
+const CHK_KEY = 'sitecheck_rc_prepour_v1';
+function loadChk(){
+  try{ return JSON.parse(localStorage.getItem(CHK_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveChk(data){ try{ localStorage.setItem(CHK_KEY, JSON.stringify(data)); }catch(e){} }
+
+function genId(){ return Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7); }
+
+function buildMarkupItem(container, entry, data){
+  const item = document.createElement('div'); item.className = 'markup-item';
+  item.innerHTML = `
+    <div class="mu-head">
+      <input type="text" class="mu-caption" placeholder="Label (e.g. Slab formwork — Grid C4)" value="${esc(entry.caption)}">
+      <button class="mu-del" aria-label="Delete photo">✕</button>
+    </div>
+    <div class="mu-toolbar">
+      <button data-tool="pen" class="on">Pen</button>
+      <button data-tool="pin">Pin</button>
+      ${MU_COLORS.map(c=>`<button class="mu-swatch ${c===entry.color?'on':''}" data-color="${c}" style="background:${c}"></button>`).join('')}
+      <button data-action="undo">Undo</button>
+      <button data-action="clear">Clear</button>
+    </div>
+    <div class="mu-canvas-wrap"><canvas></canvas></div>
+    <div class="pin-list"></div>`;
+  container.appendChild(item);
+
+  if(!entry.color) entry.color = MU_COLORS[0];
+  let tool = 'pen';
+
+  const canvas = item.querySelector('canvas');
+  canvas.width = entry.width; canvas.height = entry.height;
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  const pinList = item.querySelector('.pin-list');
+
+  function redraw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    entry.strokes.forEach(s=>{
+      ctx.strokeStyle = s.color; ctx.lineWidth = Math.max(2, canvas.width*0.004);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      s.pts.forEach((p,i)=> i===0 ? ctx.moveTo(p[0],p[1]) : ctx.lineTo(p[0],p[1]));
+      ctx.stroke();
+    });
+    entry.pins.forEach((p,i)=>{
+      const r = Math.max(11, canvas.width*0.018);
+      ctx.fillStyle = '#E5484D';
+      ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1.5, r*0.15); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.round(r)}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(i+1), p.x, p.y+1);
+    });
+  }
+  img.onload = redraw;
+  img.src = entry.img;
+
+  function renderPinList(){
+    pinList.innerHTML = entry.pins.map((p,i)=>`
+      <div class="pin-row">
+        <div class="pin-badge">${i+1}</div>
+        <input type="text" data-idx="${i}" placeholder="Note for pin ${i+1}" value="${esc(p.note)}">
+        <button class="pin-del" data-idx="${i}">✕</button>
+      </div>`).join('');
+    pinList.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('input', e=>{
+        entry.pins[+e.target.dataset.idx].note = e.target.value;
+        saveChk(data);
+      });
+    });
+    pinList.querySelectorAll('.pin-del').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        entry.pins.splice(+b.dataset.idx,1);
+        saveChk(data); redraw(); renderPinList();
+      });
+    });
+  }
+  renderPinList();
+
+  item.querySelector('[data-tool="pen"]').addEventListener('click', e=>{
+    tool='pen'; item.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('on', x===e.target));
+  });
+  item.querySelector('[data-tool="pin"]').addEventListener('click', e=>{
+    tool='pin'; item.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('on', x===e.target));
+  });
+  item.querySelectorAll('.mu-swatch').forEach(sw=>{
+    sw.addEventListener('click', ()=>{
+      entry.color = sw.dataset.color; saveChk(data);
+      item.querySelectorAll('.mu-swatch').forEach(x=>x.classList.toggle('on', x===sw));
+    });
+  });
+  item.querySelector('[data-action="undo"]').addEventListener('click', ()=>{
+    entry.strokes.pop(); saveChk(data); redraw();
+  });
+  item.querySelector('[data-action="clear"]').addEventListener('click', ()=>{
+    if(confirm('Clear all markup on this image?')){
+      entry.strokes = []; entry.pins = []; saveChk(data); redraw(); renderPinList();
+    }
+  });
+  item.querySelector('.mu-caption').addEventListener('input', e=>{ entry.caption = e.target.value; saveChk(data); });
+  item.querySelector('.mu-del').addEventListener('click', ()=>{
+    if(confirm('Delete this photo/drawing and its markup?')){
+      data.markups = data.markups.filter(x=>x.id!==entry.id);
+      saveChk(data); render();
+    }
+  });
+
+  let drawing = false, curStroke = null;
+  function getPos(e){
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
+    return [(e.clientX-rect.left)*scaleX, (e.clientY-rect.top)*scaleY];
+  }
+  canvas.addEventListener('pointerdown', e=>{
+    e.preventDefault();
+    const [x,y] = getPos(e);
+    if(tool==='pin'){
+      entry.pins.push({x,y,note:''});
+      saveChk(data); redraw(); renderPinList();
+      return;
+    }
+    canvas.setPointerCapture(e.pointerId);
+    drawing = true;
+    curStroke = {color: entry.color, pts:[[x,y]]};
+  });
+  canvas.addEventListener('pointermove', e=>{
+    if(!drawing) return;
+    e.preventDefault();
+    const [x,y] = getPos(e);
+    curStroke.pts.push([x,y]);
+    redraw();
+    ctx.strokeStyle = curStroke.color; ctx.lineWidth = Math.max(2, canvas.width*0.004);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    curStroke.pts.forEach((p,i)=> i===0 ? ctx.moveTo(p[0],p[1]) : ctx.lineTo(p[0],p[1]));
+    ctx.stroke();
+  });
+  function finishStroke(){
+    if(!drawing) return;
+    drawing = false;
+    if(curStroke && curStroke.pts.length>1){ entry.strokes.push(curStroke); saveChk(data); }
+    curStroke = null;
+    redraw();
+  }
+  canvas.addEventListener('pointerup', finishStroke);
+  canvas.addEventListener('pointercancel', finishStroke);
+}
+
+const STATUS_META = [
+  {key:'pass', label:'Observed', btn:'OBSERVED'},
+  {key:'fail', label:'Attention Required', btn:'ATTENTION'},
+  {key:'hold', label:'Hold', btn:'HOLD'},
+];
+
+function buildObservationItem(opts){
+  const item = document.createElement('div');
+  item.className = 'chk-item' + (opts.entry.hideFromReport ? ' is-hidden-from-report' : '');
+  const labelHtml = opts.editable
+    ? `<input type="text" class="custom-label" placeholder="Enter observation…" value="${esc(opts.entry.text)}" style="flex:1; padding:10px 12px; border-radius:9px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px; font-family:var(--sans); font-weight:600;">`
+    : `<div class="q" style="flex:1; margin-bottom:0;">${opts.labelText}</div>`;
+  item.innerHTML = `
+    <div style="display:flex; gap:8px; align-items:flex-start; margin-bottom:10px;">
+      ${labelHtml}
+      <button class="hide-toggle ${opts.entry.hideFromReport?'on':''}" title="${opts.entry.hideFromReport ? 'Hidden from report — tap to include' : 'Hide from report'}">H</button>
+      <button class="std-del" aria-label="Delete item">✕</button>
+    </div>
+    <div class="status-btns">
+      ${STATUS_META.map(sm=>`<button data-s="${sm.key}" class="${sm.key} ${opts.entry.status===sm.key?'on':''}">${sm.btn}</button>`).join('')}
+    </div>
+    <textarea placeholder="Notes (optional)">${opts.entry.notes||''}</textarea>`;
+
+  if(opts.editable){
+    item.querySelector('.custom-label').addEventListener('input', e=>{
+      opts.entry.text = e.target.value; opts.onSave();
+    });
+  }
+  item.querySelector('.hide-toggle').addEventListener('click', (e)=>{
+    opts.entry.hideFromReport = !opts.entry.hideFromReport;
+    opts.onSave();
+    item.classList.toggle('is-hidden-from-report', opts.entry.hideFromReport);
+    e.currentTarget.classList.toggle('on', opts.entry.hideFromReport);
+    e.currentTarget.title = opts.entry.hideFromReport ? 'Hidden from report — tap to include' : 'Hide from report';
+    if(opts.onSummaryChange) opts.onSummaryChange();
+  });
+  item.querySelector('.std-del').addEventListener('click', ()=> opts.onDelete());
+  item.querySelector('.status-btns').addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    opts.entry.status = (opts.entry.status===b.dataset.s) ? null : b.dataset.s;
+    opts.onSave();
+    item.querySelectorAll('.status-btns button').forEach(x=>x.classList.toggle('on', x.dataset.s===opts.entry.status));
+    if(opts.onSummaryChange) opts.onSummaryChange();
+  });
+  item.querySelector('textarea').addEventListener('input', e=>{
+    opts.entry.notes = e.target.value; opts.onSave();
+  });
+  return item;
+}
+
+function renderChecklist(main){
+  let data = loadChk();
+  const settings = loadSettings();
+
+  // --- data model init + one-time migration from the old checklist shape ---
+  if(!data.items) data.items = {};
+  if(!data.custom) data.custom = {};
+  if(!data.hidden) data.hidden = {};
+  if(!data.markups) data.markups = [];
+  if(data.locationGridRef===undefined) data.locationGridRef = (data.meta && data.meta.location) || '';
+  if(!data.header) data.header = {
+    addresseeName:'', companyName:'', companyAddress:'',
+    projectName: (data.meta && data.meta.project) || '',
+    date: (data.meta && data.meta.date) || '',
+    jobNumber:'', reportNo:''
+  };
+  if(!data.distribution) data.distribution = [{id:genId(), to:false, copy:false, company:'', attn:''}];
+  if(!data.info) data.info = {siteVisitRequestedBy:'', reasonForVisit:'', reasonForVisitTouched:false, inspector: settings.name||'', sentVia:''};
+  if(data.bodyHtml===undefined) data.bodyHtml = '';
+  if(!data.signoff) data.signoff = {
+    phrase:'Yours sincerely,',
+    name: settings.name||'', position: settings.position||'', company: settings.company||'',
+    signatureDataUrl: settings.signatureDataUrl||''
+  };
+  saveChk(data);
+
+  function itemKey(g,i){ return g+'::'+i; }
+
+  /* ============ 1. Report header ============ */
+  const hdrCard = document.createElement('div'); hdrCard.className='card';
+  hdrCard.innerHTML = `
+    <h2>Site Inspection Report</h2>
+    <p class="desc">These details appear on the report cover sheet.</p>
+    <div class="field-grid">
+      <div><label>Addressee name</label><input type="text" id="hAddressee" value="${esc(data.header.addresseeName)}"></div>
+      <div><label>Company name</label><input type="text" id="hCompany" value="${esc(data.header.companyName)}"></div>
+      <div class="full"><label>Company address</label><input type="text" id="hCompanyAddr" value="${esc(data.header.companyAddress)}" placeholder="Street, Suburb, State, Postcode"></div>
+      <div class="full"><label>Project name / job address</label><input type="text" id="hProject" value="${esc(data.header.projectName)}"></div>
+      <div><label>Date</label><input type="text" id="hDate" value="${esc(data.header.date)}" placeholder="e.g. 30 July 2026"></div>
+      <div><label>Job number</label><input type="text" id="hJobNo" value="${esc(data.header.jobNumber)}"></div>
+      <div class="full"><label>Report No. / Rev</label><input type="text" id="hReportNo" value="${esc(data.header.reportNo)}" placeholder="e.g. 001 / A"></div>
+    </div>`;
+  main.appendChild(hdrCard);
+  hdrCard.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      data.header.addresseeName = hdrCard.querySelector('#hAddressee').value;
+      data.header.companyName = hdrCard.querySelector('#hCompany').value;
+      data.header.companyAddress = hdrCard.querySelector('#hCompanyAddr').value;
+      data.header.projectName = hdrCard.querySelector('#hProject').value;
+      data.header.date = hdrCard.querySelector('#hDate').value;
+      data.header.jobNumber = hdrCard.querySelector('#hJobNo').value;
+      data.header.reportNo = hdrCard.querySelector('#hReportNo').value;
+      saveChk(data);
+      salutationEl.textContent = `Dear ${data.header.addresseeName || '[Recipient]'},`;
+    });
+  });
+
+  /* ============ 2. Distribution table ============ */
+  const distCard = document.createElement('div'); distCard.className='card';
+  distCard.innerHTML = `<h2>Distribution</h2><p class="desc">Who this report is being issued to.</p>`;
+  const distTableWrap = document.createElement('div'); distTableWrap.className='table-wrap';
+  distCard.appendChild(distTableWrap);
+  main.appendChild(distCard);
+
+  function renderDistTable(){
+    distTableWrap.innerHTML = `
+      <table class="dist-table">
+        <thead><tr><th>To</th><th>Copy</th><th>Company</th><th>Attn</th><th></th></tr></thead>
+        <tbody>
+          ${data.distribution.map(r=>`
+            <tr data-id="${r.id}">
+              <td><input type="checkbox" class="d-to" ${r.to?'checked':''}></td>
+              <td><input type="checkbox" class="d-copy" ${r.copy?'checked':''}></td>
+              <td><input type="text" class="d-company" value="${esc(r.company)}" placeholder="Company"></td>
+              <td><input type="text" class="d-attn" value="${esc(r.attn)}" placeholder="Attn"></td>
+              <td><button class="dr-del" aria-label="Remove recipient">✕</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+    distTableWrap.querySelectorAll('tr[data-id]').forEach(tr=>{
+      const id = tr.dataset.id;
+      const row = data.distribution.find(x=>x.id===id);
+      tr.querySelector('.d-to').addEventListener('change', e=>{ row.to = e.target.checked; saveChk(data); });
+      tr.querySelector('.d-copy').addEventListener('change', e=>{ row.copy = e.target.checked; saveChk(data); });
+      tr.querySelector('.d-company').addEventListener('input', e=>{ row.company = e.target.value; saveChk(data); });
+      tr.querySelector('.d-attn').addEventListener('input', e=>{ row.attn = e.target.value; saveChk(data); });
+      tr.querySelector('.dr-del').addEventListener('click', ()=>{
+        data.distribution = data.distribution.filter(x=>x.id!==id);
+        saveChk(data);
+        rerenderPreservingScroll();
+      });
+    });
+  }
+  renderDistTable();
+  const distAddBtn = document.createElement('button');
+  distAddBtn.className = 'dist-addrow';
+  distAddBtn.textContent = '+ Add recipient';
+  distAddBtn.addEventListener('click', ()=>{
+    data.distribution.push({id:genId(), to:false, copy:false, company:'', attn:''});
+    saveChk(data);
+    rerenderPreservingScroll();
+  });
+  distCard.appendChild(distAddBtn);
+
+  /* ============ 3. Report information ============ */
+  const infoCard = document.createElement('div'); infoCard.className='card';
+  infoCard.innerHTML = `
+    <h2>Report information</h2>
+    <label>Site visit requested by</label>
+    <input type="text" id="iRequestedBy" value="${esc(data.info.siteVisitRequestedBy)}">
+    <label>Location / grid reference</label>
+    <input type="text" id="iGridRef" value="${esc(data.locationGridRef)}">
+    <label>Reason for visit</label>
+    <input type="text" id="iReason" value="${esc(data.info.reasonForVisit)}">
+    <label>Inspector</label>
+    <input type="text" id="iInspector" value="${esc(data.info.inspector)}">
+    <label>Sent via</label>
+    <input type="text" id="iSentVia" value="${esc(data.info.sentVia)}" placeholder="e.g. Aconex, Email">`;
+  main.appendChild(infoCard);
+  infoCard.querySelector('#iRequestedBy').addEventListener('input', e=>{ data.info.siteVisitRequestedBy = e.target.value; saveChk(data); });
+  infoCard.querySelector('#iGridRef').addEventListener('input', e=>{
+    data.locationGridRef = e.target.value;
+    if(!data.info.reasonForVisitTouched){
+      data.info.reasonForVisit = e.target.value;
+      infoCard.querySelector('#iReason').value = e.target.value;
+    }
+    saveChk(data);
+  });
+  infoCard.querySelector('#iReason').addEventListener('input', e=>{
+    data.info.reasonForVisit = e.target.value;
+    data.info.reasonForVisitTouched = true;
+    saveChk(data);
+  });
+  infoCard.querySelector('#iInspector').addEventListener('input', e=>{ data.info.inspector = e.target.value; saveChk(data); });
+  infoCard.querySelector('#iSentVia').addEventListener('input', e=>{ data.info.sentVia = e.target.value; saveChk(data); });
+
+  /* ============ 4. Observations ============ */
+  const obsHeading = document.createElement('div');
+  obsHeading.innerHTML = `<h2 style="font-size:15px; margin:4px 2px 10px;">Observations</h2>`;
+  main.appendChild(obsHeading);
+
+  const summary = document.createElement('div'); summary.className='chk-summary';
+  main.appendChild(summary);
+
+  CHECKLIST_GROUPS.forEach(group=>{
+    const gEl = document.createElement('div'); gEl.className='chk-group';
+    gEl.innerHTML = `<h2>${group.name}</h2>`;
+    let hiddenCount = 0;
+
+    group.items.forEach((q,i)=>{
+      const key = itemKey(group.name,i);
+      if(data.hidden[key]){ hiddenCount++; return; }
+      if(!data.items[key]) data.items[key] = {status:null, notes:'', hideFromReport:false};
+      const entry = data.items[key];
+      const item = buildObservationItem({
+        labelText: q, editable:false, entry,
+        onSave: ()=> saveChk(data),
+        onSummaryChange: updateSummary,
+        onDelete: ()=>{
+          data.hidden[key] = true;
+          saveChk(data);
+          rerenderPreservingScroll();
+          showToast('Observation removed', 'Undo', ()=>{
+            delete data.hidden[key];
+            saveChk(data);
+            rerenderPreservingScroll();
+          });
+        }
+      });
+      gEl.appendChild(item);
+    });
+
+    if(hiddenCount>0){
+      const restore = document.createElement('button');
+      restore.className = 'btn'; restore.style.cssText = 'width:100%; margin-bottom:10px; font-size:12px; padding:9px;';
+      restore.textContent = `Restore ${hiddenCount} removed item${hiddenCount>1?'s':''}`;
+      restore.addEventListener('click', ()=>{
+        group.items.forEach((q,i)=>{ delete data.hidden[itemKey(group.name,i)]; });
+        saveChk(data);
+        rerenderPreservingScroll();
+      });
+      gEl.appendChild(restore);
+    }
+
+    if(!data.custom[group.name]) data.custom[group.name] = [];
+    data.custom[group.name].forEach(entry=>{
+      if(entry.hideFromReport===undefined) entry.hideFromReport = false;
+      const item = buildObservationItem({
+        labelText:'', editable:true, entry,
+        onSave: ()=> saveChk(data),
+        onSummaryChange: updateSummary,
+        onDelete: ()=>{
+          const idx = data.custom[group.name].indexOf(entry);
+          data.custom[group.name] = data.custom[group.name].filter(x=>x!==entry);
+          saveChk(data);
+          rerenderPreservingScroll();
+          showToast('Observation removed', 'Undo', ()=>{
+            data.custom[group.name].splice(Math.min(idx, data.custom[group.name].length), 0, entry);
+            saveChk(data);
+            rerenderPreservingScroll();
+          });
+        }
+      });
+      gEl.appendChild(item);
+    });
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn'; addBtn.style.cssText = 'width:100%; margin-top:2px;';
+    addBtn.textContent = '+ Add observation';
+    addBtn.addEventListener('click', ()=>{
+      data.custom[group.name].push({id:genId(), text:'', status:null, notes:'', hideFromReport:false});
+      saveChk(data);
+      rerenderPreservingScroll();
+    });
+    gEl.appendChild(addBtn);
+
+    main.appendChild(gEl);
+  });
+
+  function updateSummary(){
+    let counts = {pass:0, fail:0, hold:0}, total=0;
+    CHECKLIST_GROUPS.forEach(g=>{
+      g.items.forEach((q,i)=>{
+        if(data.hidden[itemKey(g.name,i)]) return;
+        total++;
+        const s = (data.items[itemKey(g.name,i)]||{}).status;
+        if(counts[s]!==undefined) counts[s]++;
+      });
+      (data.custom[g.name]||[]).forEach(entry=>{
+        total++;
+        if(counts[entry.status]!==undefined) counts[entry.status]++;
+      });
+    });
+    summary.innerHTML = `
+      <div class="pill pass"><div class="n">${counts.pass}</div><div class="l">Observed</div></div>
+      <div class="pill fail"><div class="n">${counts.fail}</div><div class="l">Attention</div></div>
+      <div class="pill hold"><div class="n">${counts.hold}</div><div class="l">Hold</div></div>
+      <div class="pill"><div class="n">${total-counts.pass-counts.fail-counts.hold}</div><div class="l">Open</div></div>`;
+  }
+  updateSummary();
+
+  /* ============ 5. Site markup ============ */
+  const muCard = document.createElement('div'); muCard.className='card';
+  muCard.innerHTML = `
+    <h2>Site markup</h2>
+    <p class="desc">Attach a photo or drawing and mark it up with freehand lines and numbered pins. Included automatically in the PDF report.</p>`;
+  main.appendChild(muCard);
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.style.display = 'none';
+  fileInput.addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    try{
+      const {dataUrl, width, height} = await fileToScaledDataUrl(file);
+      data.markups.push({id:genId(), img:dataUrl, width, height, strokes:[], pins:[], caption:'', color:MU_COLORS[0]});
+      saveChk(data);
+      rerenderPreservingScroll();
+    }catch(err){ alert('Could not load that image.'); }
+    fileInput.value = '';
+  });
+  muCard.appendChild(fileInput);
+
+  data.markups.forEach(entry => buildMarkupItem(muCard, entry, data));
+
+  const addMuBtn = document.createElement('button');
+  addMuBtn.className = 'mu-add-btn';
+  addMuBtn.textContent = '+ Add photo or drawing';
+  addMuBtn.addEventListener('click', ()=> fileInput.click());
+  muCard.appendChild(addMuBtn);
+
+  /* ============ 6. Report body (rich text) ============ */
+  const bodyCard = document.createElement('div'); bodyCard.className='card';
+  bodyCard.innerHTML = `
+    <h2>Report body</h2>
+    <div class="salutation" id="salutationEl">Dear ${esc(data.header.addresseeName) || '[Recipient]'},</div>
+    <div class="rte-toolbar">
+      <button data-cmd="bold" title="Bold"><b>B</b></button>
+      <button data-cmd="italic" title="Italic"><i>I</i></button>
+      <button data-cmd="underline" title="Underline"><u>U</u></button>
+      <button data-cmd="insertUnorderedList" title="Bullet list">•≡</button>
+      <button data-cmd="insertOrderedList" title="Numbered list">1≡</button>
+      <button data-cmd="undo" title="Undo">↺</button>
+      <button data-cmd="redo" title="Redo">↻</button>
+    </div>
+    <div class="rte-editor" id="bodyEditor" contenteditable="true"></div>`;
+  main.appendChild(bodyCard);
+  const salutationEl = bodyCard.querySelector('#salutationEl');
+  const bodyEditor = bodyCard.querySelector('#bodyEditor');
+  bodyEditor.innerHTML = data.bodyHtml || '';
+  bodyCard.querySelector('.rte-toolbar').addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    bodyEditor.focus();
+    try{ document.execCommand(b.dataset.cmd, false, null); }catch(err){}
+    data.bodyHtml = bodyEditor.innerHTML;
+    saveChk(data);
+  });
+  bodyEditor.addEventListener('input', ()=>{
+    data.bodyHtml = bodyEditor.innerHTML;
+    saveChk(data);
+  });
+  bodyEditor.addEventListener('paste', (e)=>{
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    try{ document.execCommand('insertText', false, text); }
+    catch(err){ bodyEditor.textContent += text; }
+  });
+
+  /* ============ 7. Sign-off ============ */
+  const signCard = document.createElement('div'); signCard.className='card';
+  signCard.innerHTML = `
+    <h2>Sign-off</h2>
+    <label>Closing</label>
+    <select id="sPhrase">
+      <option value="Kind regards,">Kind regards,</option>
+      <option value="Regards,">Regards,</option>
+      <option value="Yours sincerely,">Yours sincerely,</option>
+    </select>
+    <label>Name</label>
+    <input type="text" id="sName" value="${esc(data.signoff.name)}">
+    <label>Position</label>
+    <input type="text" id="sPosition" value="${esc(data.signoff.position)}">
+    <label>Company</label>
+    <input type="text" id="sCompany" value="${esc(data.signoff.company)}">
+    <button class="btn" id="sResetFromSettings" style="width:100%; margin-top:12px;">Reset name/position/company/signature from settings</button>
+    <div class="signoff-block">
+      <label style="margin-top:0;">Signature for this report</label>
+    </div>`;
+  main.appendChild(signCard);
+  signCard.querySelector('#sPhrase').value = data.signoff.phrase;
+  signCard.querySelector('#sPhrase').addEventListener('change', e=>{ data.signoff.phrase = e.target.value; saveChk(data); });
+  signCard.querySelector('#sName').addEventListener('input', e=>{ data.signoff.name = e.target.value; saveChk(data); });
+  signCard.querySelector('#sPosition').addEventListener('input', e=>{ data.signoff.position = e.target.value; saveChk(data); });
+  signCard.querySelector('#sCompany').addEventListener('input', e=>{ data.signoff.company = e.target.value; saveChk(data); });
+
+  const sigPadContainer = signCard.querySelector('.signoff-block');
+  buildSignaturePad(sigPadContainer, {
+    value: data.signoff.signatureDataUrl,
+    onChange: (dataUrl)=>{ data.signoff.signatureDataUrl = dataUrl; saveChk(data); }
+  });
+
+  signCard.querySelector('#sResetFromSettings').addEventListener('click', ()=>{
+    const s = loadSettings();
+    data.signoff.name = s.name||''; data.signoff.position = s.position||'';
+    data.signoff.company = s.company||''; data.signoff.signatureDataUrl = s.signatureDataUrl||'';
+    saveChk(data);
+    rerenderPreservingScroll();
+  });
+
+  /* ============ 8. Export ============ */
+  const pdfRow = document.createElement('div'); pdfRow.style.cssText = 'margin-top:4px;';
+  pdfRow.innerHTML = `<button class="btn primary" id="chkPdf" style="width:100%;">Export PDF report</button>`;
+  main.appendChild(pdfRow);
+  pdfRow.querySelector('#chkPdf').addEventListener('click', ()=> exportPdfReport(data));
+
+  const btnrow = document.createElement('div'); btnrow.className='btnrow'; btnrow.style.marginTop='8px';
+  btnrow.innerHTML = `<button class="btn" id="chkExport">Export text</button><button class="btn danger" id="chkReset">Reset</button>`;
+  main.appendChild(btnrow);
+  btnrow.querySelector('#chkExport').addEventListener('click', ()=> exportChecklist(data));
+  btnrow.querySelector('#chkReset').addEventListener('click', ()=>{
+    if(confirm('Clear this entire inspection report — header, distribution, observations and markup?')){
+      localStorage.removeItem(CHK_KEY);
+      render();
+    }
+  });
+}
+
+const ASSET_CACHE = {};
+function loadAssetDataUrl(url){
+  if(ASSET_CACHE[url]) return ASSET_CACHE[url];
+  ASSET_CACHE[url] = fetch(url).then(r=>r.blob()).then(blob=> new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  }));
+  return ASSET_CACHE[url];
+}
+
+const BRAND_RED = [216,31,51];
+const BRAND = {
+  addressLines: ['Level 10, 400 George St', 'Sydney NSW 2000', '02 9241 4188', 'sydney@northrop.com.au', 'ABN 81 094 433 100'],
+  tagline: 'REAL PEOPLE · REAL PARTNERSHIPS · REAL IMPACT',
+};
+
+async function exportPdfReport(data){
+  if(!window.jspdf){ alert('PDF library not available — check the app has loaded fully (and has been opened online at least once).'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const pageW = 210, pageH = 297, margin = 16;
+
+  let logoUrl = null, markUrl = null;
+  try{
+    logoUrl = await loadAssetDataUrl('assets/logo.png');
+    markUrl = await loadAssetDataUrl('assets/brand-mark.png');
+  }catch(e){ /* fall back to text-only header if assets fail to load */ }
+
+  const sidebarW = 54;
+  const contentX = sidebarW + 14;
+  const contentW = pageW - contentX - margin;
+
+  function drawLetterheadPage(){
+    // header zone
+    if(logoUrl){
+      const logoW = 46, logoH = logoW * (327/2374);
+      doc.addImage(logoUrl, 'PNG', margin, 14, logoW, logoH);
+    } else {
+      doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
+      doc.text('NORTHROP', margin, 22);
+    }
+    // sidebar
+    doc.setFillColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
+    doc.rect(0, 34, sidebarW, pageH-34-14, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(255,255,255);
+    const titleLines = doc.splitTextToSize('SITE INSPECTION REPORT', sidebarW-16);
+    doc.text(titleLines, 8, 48);
+    if(data.header.reportNo){
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      doc.text(`Report No: ${data.header.reportNo}`, 8, 48 + titleLines.length*5.5 + 6);
+    }
+    // sidebar footer: contact block + mark
+    let cy = pageH - 14 - (BRAND.addressLines.length*4.4) - 14;
+    if(markUrl){ doc.addImage(markUrl, 'PNG', 8, cy-12, 8, 8); }
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
+    BRAND.addressLines.forEach(line=>{ doc.text(line, 8, cy); cy += 4.4; });
+
+    // footer tagline + page number (full width)
+    doc.setDrawColor(220); doc.line(margin, pageH-12, pageW-margin, pageH-12);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(140);
+    doc.text(BRAND.tagline, sidebarW+margin, pageH-7);
+    doc.text(String(doc.internal.getNumberOfPages()), pageW-margin, pageH-7, {align:'right'});
+  }
+
+  function drawContinuationHeader(){
+    if(logoUrl){
+      const logoW = 32, logoH = logoW * (327/2374);
+      doc.addImage(logoUrl, 'PNG', margin, 10, logoW, logoH);
+    } else {
+      doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
+      doc.text('NORTHROP', margin, 16);
+    }
+    doc.setDrawColor(220); doc.line(margin, 20, pageW-margin, 20);
+    doc.setDrawColor(220); doc.line(margin, pageH-12, pageW-margin, pageH-12);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(140);
+    doc.text(BRAND.tagline, margin, pageH-7);
+    doc.text(String(doc.internal.getNumberOfPages()), pageW-margin, pageH-7, {align:'right'});
+  }
+
+  drawLetterheadPage();
+  let x = contentX, y = 20;
+  function ensureCover(h){
+    if(y+h > pageH-18){ doc.addPage(); drawContinuationHeader(); x = margin; y = 26; }
+  }
+
+  // recipient block
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(30);
+  const recipLines = [data.header.addresseeName, data.header.companyName, data.header.companyAddress].filter(Boolean);
+  recipLines.forEach(l=>{ doc.text(l, x, y); y += 5; });
+  const rightColX = pageW - margin - 55;
+  let ry = 20;
+  if(data.header.date){ doc.text(data.header.date, rightColX, ry); ry += 5; }
+  if(data.header.jobNumber){ doc.text(`Job No: ${data.header.jobNumber}`, rightColX, ry); ry += 5; }
+  y = Math.max(y, ry) + 8;
+
+  // distribution table
+  const distRows = (data.distribution||[]).filter(r=> r.company || r.attn);
+  if(distRows.length){
+    ensureCover(10 + distRows.length*7);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(20);
+    const colTo = x, colCopy = x+14, colCompany = x+30, colAttn = x+30+contentW*0.4;
+    doc.text('TO', colTo, y); doc.text('COPY', colCopy, y); doc.text('COMPANY', colCompany, y); doc.text('ATTN', colAttn, y);
+    y += 3;
+    doc.setDrawColor(210); doc.line(x, y, x+contentW, y); y += 5;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    distRows.forEach(r=>{
+      ensureCover(7);
+      doc.rect(colTo, y-3.5, 3.5, 3.5, r.to ? 'F' : 'S');
+      doc.rect(colCopy, y-3.5, 3.5, 3.5, r.copy ? 'F' : 'S');
+      doc.text(r.company||'', colCompany, y);
+      doc.text(r.attn||'', colAttn, y);
+      y += 6.5;
+    });
+    y += 6;
+  }
+
+  // report information block
+  const infoRows = [
+    ['SITE VISIT REQUESTED BY', data.info.siteVisitRequestedBy],
+    ['REASON FOR VISIT', data.info.reasonForVisit],
+    ['INSPECTOR', data.info.inspector],
+    ['SENT VIA', data.info.sentVia],
+  ].filter(r=>r[1]);
+  if(infoRows.length){
+    ensureCover(infoRows.length*7+4);
+    infoRows.forEach(r=>{
+      ensureCover(7);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(120);
+      doc.text(r[0], x, y);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(30);
+      const lines = doc.splitTextToSize(r[1], contentW);
+      doc.text(lines, x, y+4.2);
+      y += 4.2 + lines.length*4.6;
+      doc.setDrawColor(230); doc.line(x, y, x+contentW, y); y += 4;
+    });
+    y += 4;
+  }
+
+  // salutation + body
+  ensureCover(10);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(30);
+  doc.text(`Dear ${data.header.addresseeName || 'Sir/Madam'},`, x, y); y += 8;
+
+  const bodyText = htmlToPlainParagraphs(data.bodyHtml);
+  bodyText.forEach(para=>{
+    if(para.type==='bullet' || para.type==='number'){
+      ensureCover(6);
+      const prefix = para.type==='bullet' ? '•  ' : `${para.index}.  `;
+      const lines = doc.splitTextToSize(para.text, contentW-8);
+      lines.forEach((line,i)=>{
+        ensureCover(5.2);
+        doc.text((i===0?prefix:'   ')+line, x, y);
+        y += 5.2;
+      });
+    } else {
+      const lines = doc.splitTextToSize(para.text, contentW);
+      lines.forEach(line=>{
+        ensureCover(5.2);
+        doc.text(line, x, y);
+        y += 5.2;
+      });
+    }
+    y += 2;
+  });
+  y += 4;
+
+  // sign-off
+  ensureCover(30);
+  doc.text(data.signoff.phrase || 'Yours sincerely,', x, y); y += 16;
+  if(data.signoff.signatureDataUrl){
+    try{
+      const sigW = 38, sigH = sigW*(220/600);
+      doc.addImage(data.signoff.signatureDataUrl, 'PNG', x, y-11, sigW, sigH);
+    }catch(e){}
+  }
+  y += 2;
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20);
+  doc.text(data.signoff.name || '', x, y); y += 5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(90);
+  const posLine = [data.signoff.position, data.signoff.company].filter(Boolean).join(' | ');
+  if(posLine){ doc.text(posLine, x, y); y += 5; }
+  y += 6;
+
+  ensureCover(20);
+  doc.setFont('helvetica','italic'); doc.setFontSize(7);  doc.setTextColor(120);
+  const disclaimer = "Site safety remains the responsibility of the builder. Any inspection carried out by Northrop Consulting Engineers Pty Ltd does not relieve the Contractor of their responsibility to construct the structure in accordance with the drawings and specifications. Statements set out here do not relieve the Contractor of his obligations to obtain approvals from authorities having jurisdiction over the works. This does not constitute authorisation for a contract variation unless stated in the instruction. No claim will be accepted unless approval of variation is obtained before any work proceeds.";
+  const discLines = doc.splitTextToSize(disclaimer, contentW);
+  doc.text(discLines, x, y); y += discLines.length*3.6;
+
+  /* ---- Observations pages ---- */
+  const obsRows = [];
+  CHECKLIST_GROUPS.forEach(g=>{
+    const rows = [];
+    g.items.forEach((q,i)=>{
+      if(data.hidden[g.name+'::'+i]) return;
+      const e = data.items[g.name+'::'+i] || {};
+      if(e.hideFromReport) return;
+      rows.push({text:q, status:e.status, notes:e.notes});
+    });
+    (data.custom[g.name]||[]).forEach(entry=>{
+      if(entry.hideFromReport) return;
+      if(!entry.text && !entry.status && !entry.notes) return;
+      rows.push({text: entry.text || '(untitled item)', status: entry.status, notes: entry.notes});
+    });
+    if(rows.length) obsRows.push({group:g.name, rows});
+  });
+
+  if(obsRows.length){
+    doc.addPage(); drawContinuationHeader(); x = margin; y = 28;
+    doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(20);
+    doc.text('Observations', x, y); y += 10;
+
+    const statusColor = {pass:[31,143,94], fail:[201,51,56], hold:[166,121,10]};
+    const statusLabel = {pass:'OBSERVED', fail:'ATTENTION REQUIRED', hold:'HOLD'};
+    obsRows.forEach(group=>{
+      if(y+12 > pageH-18){ doc.addPage(); drawContinuationHeader(); y = 28; }
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20);
+      doc.text(group.group, x, y); y += 6;
+      group.rows.forEach(r=>{
+        if(y+8 > pageH-18){ doc.addPage(); drawContinuationHeader(); y = 28; }
+        const col = statusColor[r.status] || [150,150,150];
+        doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(col[0],col[1],col[2]);
+        doc.text(`[${statusLabel[r.status] || 'OPEN'}]`, x, y);
+        doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(30);
+        const textLines = doc.splitTextToSize(r.text, pageW-margin*2-30);
+        doc.text(textLines, x+30, y);
+        y += textLines.length*4.6;
+        if(r.notes){
+          if(y+6 > pageH-18){ doc.addPage(); drawContinuationHeader(); y = 28; }
+          doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(110);
+          const noteLines = doc.splitTextToSize(`Note: ${r.notes}`, pageW-margin*2-30);
+          doc.text(noteLines, x+30, y);
+          y += noteLines.length*4.2;
+        }
+        y += 2;
+      });
+      y += 4;
+    });
+  }
+
+  /* ---- Markup pages ---- */
+  const canvasEls = document.querySelectorAll('.markup-item .mu-canvas-wrap canvas');
+  (data.markups||[]).forEach((entry, idx)=>{
+    doc.addPage(); drawContinuationHeader();
+    let my = 28;
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(20);
+    doc.text(entry.caption ? entry.caption : `Site markup ${idx+1}`, margin, my); my += 8;
+
+    const canvasEl = canvasEls[idx];
+    const imgData = canvasEl ? canvasEl.toDataURL('image/jpeg', 0.85) : entry.img;
+    const maxW = pageW-margin*2, maxH = pageH-my-18;
+    const ratio = Math.min(maxW/entry.width, maxH/entry.height);
+    const w = entry.width*ratio, h = entry.height*ratio;
+    doc.addImage(imgData, 'JPEG', margin, my, w, h);
+    my += h + 8;
+
+    if(entry.pins && entry.pins.length){
+      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20);
+      doc.text('Markup notes', margin, my); my += 6;
+      entry.pins.forEach((p,i)=>{
+        if(my+6 > pageH-18){ doc.addPage(); drawContinuationHeader(); my = 28; }
+        doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
+        doc.text(`${i+1}.`, margin, my);
+        doc.setFont('helvetica','normal'); doc.setTextColor(40);
+        const lines = doc.splitTextToSize(p.note || '(no note)', pageW-margin*2-10);
+        doc.text(lines, margin+8, my);
+        my += lines.length*4.6 + 1;
+      });
+    }
+  });
+
+  const proj = (data.header.projectName || 'inspection').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'');
+  const dt = (data.header.date || '').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'');
+  doc.save(`ConcreteCompanion-${proj}${dt?'-'+dt:''}.pdf`);
+}
+
+function htmlToPlainParagraphs(html){
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html || '';
+  const out = [];
+  wrap.childNodes.forEach(node=>{
+    if(node.nodeType===3){
+      const t = node.textContent.trim();
+      if(t) out.push({type:'p', text:t});
+      return;
+    }
+    const tag = node.tagName;
+    if(tag==='UL'){
+      [...node.children].forEach(li=> out.push({type:'bullet', text: li.textContent.trim()}));
+    } else if(tag==='OL'){
+      [...node.children].forEach((li,i)=> out.push({type:'number', index:i+1, text: li.textContent.trim()}));
+    } else {
+      const t = node.textContent.trim();
+      if(t) out.push({type:'p', text:t});
+    }
+  });
+  return out;
+}
+
+function exportChecklist(data){
+  let lines = [];
+  lines.push('NORTHROP — SITE INSPECTION REPORT');
+  lines.push(`Addressee: ${data.header.addresseeName||'—'} (${data.header.companyName||'—'})`);
+  lines.push(`Project: ${data.header.projectName||'—'}`);
+  lines.push(`Date: ${data.header.date||'—'}    Job No: ${data.header.jobNumber||'—'}    Report No: ${data.header.reportNo||'—'}`);
+  lines.push(`Inspector: ${data.info.inspector||'—'}    Reason for visit: ${data.info.reasonForVisit||'—'}`);
+  lines.push('');
+  const statusLabel = {pass:'OBSERVED', fail:'ATTENTION REQUIRED', hold:'HOLD'};
+  CHECKLIST_GROUPS.forEach(g=>{
+    lines.push(`## ${g.name}`);
+    g.items.forEach((q,i)=>{
+      if(data.hidden[g.name+'::'+i]) return;
+      const e = data.items[g.name+'::'+i] || {};
+      if(e.hideFromReport) return;
+      lines.push(`[${statusLabel[e.status]||'OPEN'}] ${q}${e.notes?' — '+e.notes:''}`);
+    });
+    (data.custom[g.name]||[]).forEach(entry=>{
+      if(entry.hideFromReport) return;
+      if(!entry.text && !entry.status && !entry.notes) return;
+      lines.push(`[${statusLabel[entry.status]||'OPEN'}] ${entry.text||'(untitled item)'}${entry.notes?' — '+entry.notes:''}`);
+    });
+    lines.push('');
+  });
+  const text = lines.join('\n');
+  if(navigator.share){
+    navigator.share({title:'Site inspection report', text}).catch(()=>fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+function fallbackCopy(text){
+  navigator.clipboard?.writeText(text).then(()=>{
+    alert('Report summary copied to clipboard.');
+  }).catch(()=>{
+    alert(text);
+  });
+}
+
+/* =====================================================================
+   THEME
+===================================================================== */
+const THEME_KEY = 'concrete_companion_theme';
+const SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>';
+const MOON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>';
+
+function applyTheme(t){
+  if(t==='dark') document.documentElement.setAttribute('data-theme','dark');
+  else document.documentElement.removeAttribute('data-theme');
+  localStorage.setItem(THEME_KEY, t);
+  const btn = document.getElementById('themeToggle');
+  if(btn) btn.innerHTML = (t==='dark') ? SUN_ICON : MOON_ICON; // icon shows what tapping switches TO... actually shows current-mode icon
+}
+function initTheme(){
+  const saved = localStorage.getItem(THEME_KEY) || 'light';
+  applyTheme(saved);
+  document.getElementById('themeToggle').addEventListener('click', ()=>{
+    const cur = document.documentElement.getAttribute('data-theme')==='dark' ? 'dark':'light';
+    applyTheme(cur==='dark' ? 'light' : 'dark');
+  });
+}
+initTheme();
+
+/* =====================================================================
+   INIT
+===================================================================== */
+render();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
