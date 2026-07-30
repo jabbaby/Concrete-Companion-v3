@@ -1918,6 +1918,71 @@ const BRAND = {
   disclaimer: "Site safety remains the responsibility of the builder. Any inspection carried out by Northrop Consulting Engineers Pty Ltd does not relieve the Contractor of their responsibility to construct the structure in accordance with the drawings and specifications. Statements set out here do not relieve the Contractor of his obligations to obtain approvals from authorities having jurisdiction over the works. This does not constitute authorisation for a contract variation unless stated in the instruction. No claim will be accepted unless approval of variation is obtained before any work proceeds.",
 };
 
+/* Wraps and draws a paragraph made of runs with different font styles (e.g. a bold-italic
+   lead sentence flowing directly into an italic body) as ONE continuous word-wrapped
+   paragraph — jsPDF has no native support for mixed-style text wrapping, so this measures
+   and packs words manually. Returns the y position after the last line. */
+function drawMixedParagraph(doc, FONT, segments, x, y, maxWidth, opts){
+  opts = opts || {};
+  const fontSize = opts.fontSize || 7.2;
+  const lineHeight = opts.lineHeight || 3.6;
+  const color = opts.color || [90,90,90];
+
+  const tokens = [];
+  segments.forEach(seg=>{
+    seg.text.split(/\s+/).filter(Boolean).forEach(w=> tokens.push({text:w, style:seg.style}));
+  });
+
+  doc.setFontSize(fontSize);
+  const lines = [[]];
+  let curWidth = 0;
+  tokens.forEach(tok=>{
+    doc.setFont(FONT, tok.style);
+    const w = doc.getTextWidth(tok.text);
+    const sw = doc.getTextWidth(' ');
+    const isFirstOnLine = lines[lines.length-1].length===0;
+    const addW = isFirstOnLine ? w : w+sw;
+    if(curWidth + addW > maxWidth && !isFirstOnLine){
+      lines.push([tok]);
+      curWidth = w;
+    } else {
+      lines[lines.length-1].push(tok);
+      curWidth += addW;
+    }
+  });
+
+  doc.setTextColor(color[0],color[1],color[2]);
+  lines.forEach(line=>{
+    let cx = x;
+    line.forEach((tok,i)=>{
+      doc.setFont(FONT, tok.style);
+      doc.text(tok.text, cx, y);
+      cx += doc.getTextWidth(tok.text) + (i<line.length-1 ? doc.getTextWidth(' ') : 0);
+    });
+    y += lineHeight;
+  });
+  return y;
+}
+
+/* Draws a rectangle with only the top-right corner rounded (matching the template's sidebar
+   shape) — jsPDF's roundedRect only supports uniform 4-corner radii, so this builds the path
+   manually: straight left/bottom/most-of-top edges, one cubic-bezier quarter-circle for the
+   top-right corner. x=0 is assumed to be the page edge (left corners stay square/flush). */
+function drawTopRightRoundedRect(doc, xOrigin, yTop, w, h, r, fillColor){
+  const k = 0.5523; // standard bezier circle-approximation constant
+  doc.setFillColor(fillColor[0],fillColor[1],fillColor[2]);
+  doc.lines(
+    [
+      [w - r, 0],                          // top edge, stopping short of the corner
+      [r*k, 0, r, r-r*k, r, r],             // bezier: rounds the top-right corner
+      [0, h - r],                           // right edge down
+      [-w, 0],                              // bottom edge back to the left
+      [0, -h],                              // left edge back up to start
+    ],
+    xOrigin, yTop, [1,1], 'F', true
+  );
+}
+
 async function exportPdfReport(data){
   if(!window.jspdf){ alert('PDF library not available — check the app has loaded fully (and has been opened online at least once).'); return; }
   const { jsPDF } = window.jspdf;
@@ -1932,10 +1997,11 @@ async function exportPdfReport(data){
 
   let FONT = 'helvetica';
   try{
-    const [regB64, semiB64, italB64] = await Promise.all([
+    const [regB64, semiB64, italB64, boldItalB64] = await Promise.all([
       loadAssetBase64('vendor/Figtree-Regular.ttf'),
       loadAssetBase64('vendor/Figtree-SemiBold.ttf'),
       loadAssetBase64('vendor/Figtree-Italic.ttf'),
+      loadAssetBase64('vendor/Figtree-SemiBoldItalic.ttf'),
     ]);
     doc.addFileToVFS('Figtree-Regular.ttf', regB64);
     doc.addFont('Figtree-Regular.ttf', 'Figtree', 'normal');
@@ -1943,6 +2009,8 @@ async function exportPdfReport(data){
     doc.addFont('Figtree-SemiBold.ttf', 'Figtree', 'bold');
     doc.addFileToVFS('Figtree-Italic.ttf', italB64);
     doc.addFont('Figtree-Italic.ttf', 'Figtree', 'italic');
+    doc.addFileToVFS('Figtree-SemiBoldItalic.ttf', boldItalB64);
+    doc.addFont('Figtree-SemiBoldItalic.ttf', 'Figtree', 'bolditalic');
     FONT = 'Figtree';
   }catch(e){ FONT = 'helvetica'; }
 
@@ -1958,8 +2026,7 @@ async function exportPdfReport(data){
       doc.setFont(FONT,'bold'); doc.setFontSize(18); doc.setTextColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
       doc.text('NORTHROP', margin, 22);
     }
-    doc.setFillColor(BRAND_RED[0],BRAND_RED[1],BRAND_RED[2]);
-    doc.rect(0, 34, sidebarW, pageH-34-14, 'F');
+    drawTopRightRoundedRect(doc, 0, 34, sidebarW, pageH-34-14, 10, BRAND_RED);
     doc.setFont(FONT,'bold'); doc.setFontSize(11); doc.setTextColor(255,255,255);
     const titleLines = doc.splitTextToSize('SITE INSPECTION REPORT', sidebarW-16);
     doc.text(titleLines, 8, 48);
@@ -2150,18 +2217,12 @@ async function exportPdfReport(data){
 
   /* ---- disclaimer ---- */
   ensureCover(20);
-  doc.setFont(FONT,'italic'); doc.setFontSize(7.2); doc.setTextColor(90);
   const boldLead = 'Site safety remains the responsibility of the builder.';
   const rest = BRAND.disclaimer.slice(boldLead.length).trim();
-  const leadLines = doc.splitTextToSize(boldLead, contentW);
-  doc.setFont(FONT,'bold');
-  doc.text(leadLines, x, y);
-  const leadW = doc.getTextWidth(leadLines[leadLines.length-1]);
-  doc.setFont(FONT,'italic');
-  const restLines = doc.splitTextToSize(rest, contentW);
-  // simplest reliable layout: bold lead on its own visual run, rest wraps below on same paragraph
-  doc.text(restLines, x, y + leadLines.length*3.6);
-  y += (leadLines.length + restLines.length)*3.6;
+  y = drawMixedParagraph(doc, FONT, [
+    {text: boldLead, style: 'bolditalic'},
+    {text: rest, style: 'italic'},
+  ], x, y, contentW, {fontSize:7.2, lineHeight:3.6, color:[90,90,90]});
 
   /* ============ Observations pages ============ */
   const obsRows = [];

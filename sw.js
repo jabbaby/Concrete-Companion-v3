@@ -1,6 +1,6 @@
 // Concrete Companion — service worker
 // Bumps CACHE_NAME to force refresh of cached assets on next deploy.
-const CACHE_NAME = 'concrete-companion-v3';
+const CACHE_NAME = 'concrete-companion-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const ASSETS = [
   './vendor/Figtree-Regular.ttf',
   './vendor/Figtree-SemiBold.ttf',
   './vendor/Figtree-Italic.ttf',
+  './vendor/Figtree-SemiBoldItalic.ttf',
   './assets/logo.png',
   './assets/brand-mark.png',
   './icons/icon-192.png',

@@ -6,7 +6,27 @@ inspection tools, referenced to **AS 3600:2018**. Designed for one-tap access fr
 > Folder/repo name can stay `sitecheck-rc` (or whatever you already created) — only the
 > in-app name and icon changed, so your existing GitHub Pages URL and NFC tag still work.
 
-## What's new in this version — Header overlap bug fix
+## What's new in this version — Disclaimer flow + sidebar shape
+
+The two known gaps from the last round are closed:
+
+- **Disclaimer paragraph** now flows as one continuous wrapped paragraph exactly like the
+  template — the bold-italic lead sentence ("Site safety remains...") runs directly into the
+  plain-italic body text, instead of sitting on its own line above it. jsPDF has no built-in
+  support for mixed-style text wrapping, so this required a small manual word-by-word layout
+  routine (measures each word at its own style, packs them onto lines, draws each word in its
+  correct style at the right position) — verified by OCR'ing the rendered PDF (confirms it reads
+  as one paragraph) and by measuring ink density (the lead sentence is ~40% denser than the rest,
+  confirming it's actually bold and not just visually similar).
+- **Sidebar shape** now has the rounded top-right corner from the template, instead of a plain
+  rectangle. jsPDF's built-in rounded-rectangle only supports rounding all four corners equally,
+  so this is built from a manual path (straight edges + one bezier-curve corner). Verified by
+  scanning the actual pixel boundary of the rendered corner to confirm it's a smooth curve, not a
+  square corner.
+- Added the extra bold-italic weight of your brand font (Figtree SemiBold Italic) needed for the
+  disclaimer's lead sentence — four font files are now embedded in exported PDFs in total.
+
+## What's new in the previous version — Header overlap bug fix
 
 Found and fixed the cause of the missing address / "100 Ebley Street": the recipient block's
 left column (addressee/company/address) had no width limit, so a long address was drawn straight
