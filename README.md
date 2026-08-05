@@ -6,7 +6,49 @@ inspection tools, referenced to **AS 3600:2018**. Designed for one-tap access fr
 > Folder/repo name can stay `sitecheck-rc` (or whatever you already created) — only the
 > in-app name and icon changed, so your existing GitHub Pages URL and NFC tag still work.
 
-## What's new in this version — Disclaimer flow + sidebar shape
+## What's new in this version — Phase 2: full annotation toolset + native PDF markup
+
+**Site markup now has a proper annotation toolset**, matching what was scoped for Phase 2:
+
+- **Pen, Highlighter, Eraser, Text, Pin, Rectangle, Circle, Line, Arrow** — nine tools, all sharing
+  the same colour palette (now 5 colours) and canvas. Highlighter draws a wide, semi-transparent
+  stroke; Eraser removes whichever strokes/shapes/text/pins it touches.
+- **Proper Undo/Redo** — a real action stack (not just "undo last stroke"). Every add and every
+  eraser pass is one undo step; redo replays it. This applies per photo/drawing/PDF page.
+- **Text tool** places a small on-canvas text box wherever you tap, independent from the numbered
+  Pin tool (which keeps its own note-list legend underneath, for issue-tracking style markup).
+
+**PDF import, with true native-size export** — the bigger piece of Phase 2:
+
+- **"+ Add PDF"** alongside "+ Add photo/drawing". Pick a PDF (e.g. an exported drawing sheet) and
+  every page is imported as its own markup entry, annotatable with the full toolset above.
+- On export, native PDF pages are **not** redrawn onto an A4 page — the original page (A4, A3, A2,
+  A1, whatever size and orientation it was) is copied through byte-for-byte, with your annotations
+  burned onto a copy of it at the correct scale and position. An A3 landscape sheet exports as an
+  A3 landscape page, not squashed onto A4.
+- Any numbered pins on a PDF page get a "Markup notes" legend page appended straight after it
+  (same pattern as the existing photo markup notes), since there's nowhere on a live engineering
+  drawing to write a paragraph of note text.
+- Under the hood this uses two more libraries bundled locally for offline use: **pdf.js** (renders
+  PDF pages so you can see and mark them up) and **pdf-lib** (merges the final document while
+  preserving each page's exact original size). Total app size is now ~3.5 MB — still a one-time
+  download, fully cached for offline use afterward.
+
+**Signature upload bug also fixed as part of this pass**: PNG uploads went through the same
+JPEG-flattening step as regular photos, silently destroying transparency — signatures now use a
+dedicated PNG-preserving path.
+
+**What's still not covered** (flagged rather than glossed over):
+- Only the specific page(s) you import become markup entries — there's no in-app "browse a
+  multi-hundred-page drawing set and pick one sheet" viewer; export the relevant sheet(s) to PDF
+  first, the way the FDC example workflow already does.
+- Shapes and text don't support resize/move-after-placement yet — delete (via eraser) and redraw
+  if you need to adjust one.
+- No pinch-zoom while annotating; you're working at the canvas's fitted display size. Fine for
+  typical phone/tablet screens, but very fine linework on a dense A1 sheet may be easier to place
+  precisely at a larger physical screen size.
+
+## What's new in the previous version — Disclaimer flow + sidebar shape
 
 The two known gaps from the last round are closed:
 
@@ -118,7 +160,11 @@ the current markup tool still works on photos/images only, downscaled on import.
 index.html                    the whole app (HTML/CSS/JS, no build step)
 manifest.json                  PWA manifest (name, icons, theme colour)
 sw.js                           service worker — caches the app shell for offline use
-vendor/jspdf.umd.min.js         PDF generation library, bundled locally (no CDN/internet needed)
+vendor/jspdf.umd.min.js         builds the cover sheet/observations PDF, bundled locally
+vendor/pdf.min.mjs               pdf.js — renders imported PDF pages for markup, bundled locally
+vendor/pdf.worker.min.mjs        pdf.js's worker (required alongside it)
+vendor/standard_fonts/           pdf.js's fallback fonts, for PDFs that don't embed their own
+vendor/pdf-lib.min.js            merges the final PDF while preserving native page sizes
 vendor/Figtree-*.ttf             your template's actual brand font, embedded in exported PDFs
 assets/logo.png                 Northrop logo, used in the PDF cover sheet
 assets/brand-mark.png            Northrop circular mark, used in the PDF sidebar
@@ -171,22 +217,26 @@ in the site folder.
 
 ## Site markup & PDF report
 
-On the **Checklist** tab, above the checklist itself:
-1. Tap **"+ Add photo or drawing"** — pick a photo (camera or gallery) or a drawing/plan image.
-2. Use **Pen** to draw freehand (tap a colour swatch first), or **Pin** to drop a numbered marker
-   — each pin gets its own note field in the list underneath the image.
-3. Add as many photos/drawings as the inspection needs; each has its own caption field.
-4. Tap **Export PDF report** — this generates one PDF containing the project details, the full
-   checklist (with pass/fail/hold status and notes), and every markup image with its pin notes
-   listed underneath. It downloads straight to the device — no internet connection needed once
-   the app has been opened online at least once (the PDF library is bundled in `vendor/`, not
-   loaded from the internet).
+On the **Report** tab, in the Site markup card:
+1. Tap **"+ Add photo/drawing"** for a photo (camera or gallery) or scanned drawing image, or
+   **"+ Add PDF"** to import a PDF sheet — every page in the PDF becomes its own markup entry.
+2. Pick a tool: **Pen**, **Highlighter**, **Eraser**, **Text**, **Pin**, **Rectangle**, **Circle**,
+   **Line**, **Arrow** — pick a colour first for anything except Eraser. **Pin** is separate from
+   **Text**: pins are numbered and get a note field in the list underneath (good for issue
+   tracking); Text places a label directly on the drawing.
+3. **Undo**/**Redo** step through your annotation history; **Clear** wipes all markup on that item.
+4. Add as many photos/drawings/PDF pages as the inspection needs; each has its own caption field.
+5. Tap **Export PDF report** — generates one PDF: project details, the full observations list,
+   every photo/drawing markup, and every PDF page **at its original size** with annotations burned
+   in (an A3 sheet stays A3, not squashed onto A4). Downloads straight to the device — no internet
+   needed once the app's been opened online at least once (everything's bundled in `vendor/`).
 
-**Export text** (below the PDF button) gives a quick plain-text copy of just the checklist, for
-pasting into an email or chat — it doesn't include the markup images.
+**Export text** (below the PDF button) gives a quick plain-text copy of just the observations, for
+pasting into an email or chat — it doesn't include markup images or PDF pages.
 
-Photos are automatically downscaled on import to keep file sizes and on-device storage
-reasonable — fine for a report, not intended as a high-resolution photo archive.
+Photos and PDF page previews are automatically scaled on import to keep on-device storage
+reasonable — fine for a report, not intended as a high-resolution archive. The original PDF bytes
+are kept alongside so the *exported* page is still full quality at its native size regardless.
 
 ## Updating the content later
 

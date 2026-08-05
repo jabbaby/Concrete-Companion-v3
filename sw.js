@@ -1,11 +1,28 @@
 // Concrete Companion — service worker
 // Bumps CACHE_NAME to force refresh of cached assets on next deploy.
-const CACHE_NAME = 'concrete-companion-v4';
+const CACHE_NAME = 'concrete-companion-v5';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './vendor/jspdf.umd.min.js',
+  './vendor/pdf-lib.min.js',
+  './vendor/pdf.min.mjs',
+  './vendor/pdf.worker.min.mjs',
+  './vendor/standard_fonts/FoxitDingbats.pfb',
+  './vendor/standard_fonts/FoxitFixed.pfb',
+  './vendor/standard_fonts/FoxitFixedBold.pfb',
+  './vendor/standard_fonts/FoxitFixedBoldItalic.pfb',
+  './vendor/standard_fonts/FoxitFixedItalic.pfb',
+  './vendor/standard_fonts/FoxitSerif.pfb',
+  './vendor/standard_fonts/FoxitSerifBold.pfb',
+  './vendor/standard_fonts/FoxitSerifBoldItalic.pfb',
+  './vendor/standard_fonts/FoxitSerifItalic.pfb',
+  './vendor/standard_fonts/FoxitSymbol.pfb',
+  './vendor/standard_fonts/LiberationSans-Bold.ttf',
+  './vendor/standard_fonts/LiberationSans-BoldItalic.ttf',
+  './vendor/standard_fonts/LiberationSans-Italic.ttf',
+  './vendor/standard_fonts/LiberationSans-Regular.ttf',
   './vendor/Figtree-Regular.ttf',
   './vendor/Figtree-SemiBold.ttf',
   './vendor/Figtree-Italic.ttf',
