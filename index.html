@@ -1696,9 +1696,12 @@ function buildMarkupItem(container, entry, data){
 async function handlePdfImport(file, data, onDone){
   try{
     const buf = await file.arrayBuffer();
-    const pdfjsLib = await loadPdfJs();
-    const pdfDoc = await getPdfDocument(pdfjsLib, new Uint8Array(buf));
+    // Capture the original bytes BEFORE handing anything to pdf.js — pdf.js transfers
+    // (not clones) the buffer to its worker for parsing, which detaches it. Reading the
+    // same buffer afterward throws "Buffer is already detached".
     const pdfBytesB64 = arrayBufferToBase64(buf);
+    const pdfjsLib = await loadPdfJs();
+    const pdfDoc = await getPdfDocument(pdfjsLib, new Uint8Array(buf.slice(0)));
     const numPages = pdfDoc.numPages;
     for(let i=1;i<=numPages;i++){
       const page = await pdfDoc.getPage(i);

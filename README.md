@@ -6,7 +6,19 @@ inspection tools, referenced to **AS 3600:2018**. Designed for one-tap access fr
 > Folder/repo name can stay `sitecheck-rc` (or whatever you already created) — only the
 > in-app name and icon changed, so your existing GitHub Pages URL and NFC tag still work.
 
-## What's new in this version — Phase 2: full annotation toolset + native PDF markup
+## What's new in this version — PDF import bug fix
+
+Fixed "Could not load that PDF. Buffer is already detached" when importing a PDF. pdf.js hands
+the file's bytes to a Web Worker for parsing, and browsers **transfer** (not copy) that memory to
+the worker for performance — which leaves the original buffer unusable in the main thread
+afterward. The code was reading that same buffer again right after, to keep a copy of the original
+PDF for native-size export, which is exactly what broke. Now the original bytes are captured
+first, before pdf.js gets anywhere near them, and pdf.js is given an independent copy instead of
+the original. Verified directly by genuinely detaching a buffer the same way a real browser's
+worker transfer does, and confirming the captured copy still reconstructs the exact original file
+byte-for-byte afterward — not just re-running the import and hoping.
+
+## What's new in the previous version — Phase 2: full annotation toolset + native PDF markup
 
 **Site markup now has a proper annotation toolset**, matching what was scoped for Phase 2:
 
